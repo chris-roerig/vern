@@ -1,17 +1,20 @@
- _   _           _
-| | | | ___ _ __| |__
-| | | |/ _ \ '__| '_ \
-| |_| |  __/ |  | |_) |
- \___/ \___|_|  |_.__/
+```
+                    ▄▄         ▄▄   
+▄▄ ▄▄ ▄▄▄▄ ▄▄▄▄     █   ▄▄  ▄▄  █   
+██▄██ ██▄▄  ██▄█▄  ██   ███▄██  ██  
+ ▀█▀  ██▄▄▄ ██ ██   █   ██ ▀██  █   
+                    ▀▀         ▀▀   
+```
 
-vern{n} - The version manager that just makes sense.
-██████████████████████████████████████████████████████████████████████████
+# vern{n}
+ 
+**The version manager that just makes sense.**
 
-A programming language version installation manager that's intuitive, fast, and actually works the way you expect.
+> A programming language version installation manager that's intuitive, fast, and actually works the way you expect.
 
-────────────────────────────────────────────────────────────────────────────
+---
 
-QUICK START
+## QUICK START
 
 Install vern with a single command:
 
@@ -25,9 +28,9 @@ The installer will:
   • Download the supported languages list
   • Optionally add ~/.local/bin to your PATH
 
-────────────────────────────────────────────────────────────────────────────
+---
 
-COMMANDS
+## COMMANDS
 
     vern                    Print version and help
     vern help               Print detailed help
@@ -49,9 +52,16 @@ COMMANDS
     vern update --only-self            Update vern binary only
     vern update --only-langs           Update language list only
 
-────────────────────────────────────────────────────────────────────────────
+---
 
-ADDING PROGRAMMING LANGUAGES
+## CURRENT OFFICIALLY SUPPORTED LANGUAGES
+
+    • Go
+    • Python
+    • Node.js
+    • Ruby
+
+### ADDING PROGRAMMING LANGUAGES
 
 Vern uses a simple YAML config file at ~/.config/vern/languages.yaml
 
@@ -68,7 +78,7 @@ To add a new language, add an entry to the languages list:
           extract_type: "tar.gz"
           bin_rel_path: "rustc/bin/rustc"
 
-Fields explained:
+#### Fields explained:
     name           - Language identifier (used in commands)
     binary_name    - The executable name (for shims and .vern files)
     version_source
@@ -79,26 +89,9 @@ Fields explained:
       extract_type      - Archive type: "tar.gz" or "tar.xz"
       bin_rel_path      - Path to binary relative to install directory
 
-────────────────────────────────────────────────────────────────────────────
+---
 
-UPDATING THE OFFICIALLY SUPPORTED LANGUAGES LIST
-
-Vern maintains a versioned language list that can be updated independently of the binary.
-
-To update to the latest supported languages:
-
-    vern update --only-langs
-
-This fetches the latest languages.yaml from the repository and updates your local config.
-The language list version is tracked in ~/.config/vern/langs_version.
-
-To update everything (vern binary + languages):
-
-    vern update
-
-────────────────────────────────────────────────────────────────────────────
-
-VERSION SWITCHING
+## VERSION SWITCHING
 
 Vern resolves versions in this order:
     1. .vern file in current or parent directory
@@ -116,20 +109,26 @@ For version switching to work, ensure vern shims are in your PATH:
 
     export PATH="$HOME/.local/share/vern/shims:$PATH"
 
-────────────────────────────────────────────────────────────────────────────
+---
 
-CURRENT OFFICIALLY SUPPORTED LANGUAGES
+## UPDATING THE OFFICIALLY SUPPORTED LANGUAGES LIST
 
-    • Go
-    • Python
-    • Node.js
-    • Ruby
+Vern maintains a versioned language list that can be updated independently of the binary.
 
-More languages can be added by updating languages.yaml (see above).
+To update to the latest supported languages:
 
-────────────────────────────────────────────────────────────────────────────
+    vern update --only-langs
 
-SHELL SETUP
+This fetches the latest languages.yaml from the repository and updates your local config.
+The language list version is tracked in ~/.config/vern/langs_version.
+
+To update everything (vern binary + languages):
+
+    vern update
+
+---
+
+## SHELL SETUP
 
 If ~/.local/bin is not in your PATH, add it:
 
@@ -144,7 +143,7 @@ If ~/.local/bin is not in your PATH, add it:
     # For fish:
     fish_add_path "$HOME/.local/bin"
 
-────────────────────────────────────────────────────────────────────────────
+---
 
-GitHub: https://github.com/chris-roerig/vern
+GitHub: https://github.com/chris-roerig/vern  
 Issues: https://github.com/chris-roerig/vern/issues
