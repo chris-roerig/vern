@@ -6,11 +6,7 @@
                     ▀▀         ▀▀   
 ```
 
-# ver{n}
-
-**The version manager that just makes sense.**
-
-> A programming language version installation manager that's intuitive, fast, and actually works the way you expect.
+**ver{n}** is the version manager that works the way you expect.
 
 ---
 
@@ -36,28 +32,28 @@ The installer will:
 ## Commands
 
 ```
-vern                                   Print version and help
-vern help                              Print detailed help
+vern                                    Print version and help
+vern help                               Print detailed help
 
-vern install <lang>                    Install latest version
-vern install <lang> 3                  Install latest 3.x.x
-vern install <lang> 3.11              Install latest 3.11.x
-vern install <lang> 3.11.2            Install exact version
+vern install <lang>                     Install latest version
+vern install <lang> {M}                 Install latest {M}.x.x
+vern install <lang> {M}.{m}             Install latest {M}.{m}.x
+vern install <lang> {M}.{m}.{p}         Install exact version
 
-vern list                              List all installed languages
-vern list <lang>                       List installed versions for language
+vern list                               List all installed languages
+vern list <lang>                        List installed versions for language
 
-vern default <lang>                    Interactively select default
-vern default <lang> <version>          Set default directly
+vern default <lang>                     Interactively select default
+vern default <lang> <version>           Set default directly
 
-vern remove <lang>                     Multi-select versions to remove
+vern remove <lang>                      Multi-select versions to remove
 
-vern update                            Update vern + language list
-vern update --only-self                Update vern binary only
-vern update --only-langs               Update language list only
+vern update                             Update vern + language list
+vern update --only-self                 Update vern binary only
+vern update --only-langs                Update language list only
 
-vern setup                             Create shims for version switching
-vern implode                           Uninstall vern and all installed languages
+vern setup                              Create shims for version switching
+vern implode                            Uninstall vern and all installed languages
 ```
 
 ---
