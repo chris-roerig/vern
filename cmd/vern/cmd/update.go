@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/chris/vern/internal/config"
+	"github.com/chris/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -32,19 +33,19 @@ By default, updates both. Use --only-self or --only-langs to update just one.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if !updateOnlyLangs {
 			if err := updateSelf(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error updating vern: %v\n", err)
+				ui.Error("Error updating vern: %v", err)
 			}
 		}
 		if !updateOnlySelf {
 			if err := updateLangs(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error updating language list: %v\n", err)
+				ui.Error("Error updating language list: %v", err)
 			}
 		}
 	},
 }
 
 func updateSelf() error {
-	fmt.Println("Checking for vern updates...")
+	ui.Info("Checking for vern updates...")
 
 	resp, err := httpClient.Get("https://api.github.com/repos/chris-roerig/vern/releases/latest")
 	if err != nil {
@@ -70,11 +71,11 @@ func updateSelf() error {
 
 	// Compare versions (latestVersion has "v" prefix, Version doesn't)
 	if latestVersion == "v"+Version || latestVersion == Version {
-		fmt.Println("Vern is already at the latest version:", Version)
+		ui.Info("Vern is already at the latest version: %s", Version)
 		return nil
 	}
 
-	fmt.Printf("Updating vern from %s to %s...\n", Version, latestVersion)
+	ui.Info("Updating vern from %s to %s...", Version, latestVersion)
 
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
@@ -91,7 +92,7 @@ func updateSelf() error {
 		return fmt.Errorf("could not determine current executable path: %w", err)
 	}
 
-	fmt.Printf("Downloading from %s...\n", downloadURL)
+	ui.Info("Downloading from %s...", downloadURL)
 	tmpFile, err := downloadBinary(downloadURL)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
@@ -114,12 +115,12 @@ func updateSelf() error {
 	}
 	os.Remove(exePath + ".old")
 
-	fmt.Printf("Updated vern to %s. Restart your shell.\n", latestVersion)
+	ui.Success("Updated vern to %s. Restart your shell.", latestVersion)
 	return nil
 }
 
 func updateLangs() error {
-	fmt.Println("Checking for language list updates...")
+	ui.Info("Checking for language list updates...")
 
 	manifestURL := "https://raw.githubusercontent.com/chris-roerig/vern/main/languages/manifest.json"
 	resp, err := httpClient.Get(manifestURL)
@@ -142,11 +143,11 @@ func updateLangs() error {
 
 	currentVersion := config.LoadLangsVersion()
 	if manifest.LatestLangsVersion == currentVersion {
-		fmt.Println("Language list is already at the latest version:", currentVersion)
+		ui.Info("Language list is already at the latest version: %s", currentVersion)
 		return nil
 	}
 
-	fmt.Printf("Updating language list from %s to %s...\n", currentVersion, manifest.LatestLangsVersion)
+	ui.Info("Updating language list from %s to %s...", currentVersion, manifest.LatestLangsVersion)
 
 	langsResp, err := httpClient.Get(manifest.LangsURL)
 	if err != nil {
@@ -170,7 +171,7 @@ func updateLangs() error {
 	}
 
 	config.SaveLangsVersion(manifest.LatestLangsVersion)
-	fmt.Printf("Updated language list to %s\n", manifest.LatestLangsVersion)
+	ui.Success("Updated language list to %s", manifest.LatestLangsVersion)
 	return nil
 }
 
@@ -210,7 +211,7 @@ func verifyChecksum(filePath, checksumURL string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Warning: no checksum available, skipping verification")
+		ui.Warn("No checksum available, skipping verification")
 		return nil
 	}
 
@@ -237,7 +238,7 @@ func verifyChecksum(filePath, checksumURL string) error {
 	if actualHash != expectedHash {
 		return fmt.Errorf("expected %s, got %s", expectedHash, actualHash)
 	}
-	fmt.Println("Checksum verified.")
+	ui.Success("Checksum verified.")
 	return nil
 }
 

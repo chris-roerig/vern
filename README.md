@@ -6,7 +6,7 @@
                     ▀▀         ▀▀   
 ```
 
-**ver{n}** is the version manager that works the way you expect.
+**ver{n}** is the version manager that works like you think.
 
 ---
 

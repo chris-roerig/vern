@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/chris/vern/internal/install"
+	"github.com/chris/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -18,10 +19,10 @@ var setupCmd = &cobra.Command{
 		detectVersionManagers()
 
 		if err := install.CreateShims(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating shims: %v\n", err)
+			ui.Error("Error creating shims: %v", err)
 			os.Exit(1)
 		}
-		fmt.Println("Shims created successfully.")
+		ui.Success("Shims created successfully.")
 
 		if !install.IsPathSet() {
 			fmt.Println("\nAdd shims to your PATH:")
@@ -74,10 +75,10 @@ func detectVersionManagers() {
 		return
 	}
 
-	fmt.Println("Note: other version managers detected:")
+	ui.Warn("Other version managers detected:")
 	for _, m := range found {
-		fmt.Printf("  • %s (manages %s)\n", m.name, m.langs)
+		ui.Warn("  • %s (manages %s)", m.name, m.langs)
 	}
-	fmt.Println("  vern's shims will take priority if placed earlier in PATH.")
+	ui.Warn("  vern's shims will take priority if placed earlier in PATH.")
 	fmt.Println()
 }

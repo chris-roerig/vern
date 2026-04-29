@@ -7,6 +7,7 @@ import (
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/install"
+	"github.com/chris/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -16,11 +17,11 @@ var statsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		installed, err := install.GetInstalledLanguages()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			ui.Error("Error: %v", err)
 			os.Exit(1)
 		}
 		if len(installed) == 0 {
-			fmt.Println("No languages installed.")
+			ui.Info("No languages installed.")
 			return
 		}
 

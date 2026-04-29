@@ -6,6 +6,7 @@ import (
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/install"
+	"github.com/chris/vern/internal/ui"
 	"github.com/chris/vern/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -25,7 +26,7 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+			ui.Error("Error loading config: %v", err)
 			os.Exit(1)
 		}
 
@@ -37,7 +38,7 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 			}
 		}
 		if lang == nil {
-			fmt.Fprintf(os.Stderr, "Unsupported language: %s\n", langName)
+			ui.Error("Unsupported language: %s", langName)
 			fmt.Fprintf(os.Stderr, "Supported languages: ")
 			for i, l := range cfg.Languages {
 				if i > 0 {
@@ -51,14 +52,14 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 
 		resolvedVersion, err := version.ResolveVersion(lang, versionArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error resolving version: %v\n", err)
+			ui.Error("Error resolving version: %v", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Installing %s %s...\n", lang.Name, resolvedVersion)
+		ui.Info("Installing %s %s...", lang.Name, resolvedVersion)
 
 		if err := install.DownloadAndInstall(lang, resolvedVersion); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			ui.Error("Error: %v", err)
 			os.Exit(1)
 		}
 
@@ -66,11 +67,11 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 		if defaults[lang.Name] == "" {
 			defaults[lang.Name] = resolvedVersion
 			config.SaveDefaults(defaults)
-			fmt.Printf("Set %s %s as default\n", lang.Name, resolvedVersion)
+			ui.Success("Set %s %s as default", lang.Name, resolvedVersion)
 		}
 
 		if err := install.CreateShims(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to update shims: %v\n", err)
+			ui.Warn("Warning: failed to update shims: %v", err)
 		}
 	},
 }

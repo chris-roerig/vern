@@ -6,6 +6,7 @@ import (
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/install"
+	"github.com/chris/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -20,11 +21,11 @@ var listCmd = &cobra.Command{
 		if len(args) == 0 {
 			installed, err := install.GetInstalledLanguages()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				ui.Error("Error: %v", err)
 				os.Exit(1)
 			}
 			if len(installed) == 0 {
-				fmt.Println("No languages installed yet.")
+				ui.Info("No languages installed yet.")
 				fmt.Println("Run 'vern install <language>' to install one.")
 				return
 			}
@@ -44,11 +45,11 @@ var listCmd = &cobra.Command{
 		langName := args[0]
 		versions, err := install.GetInstalledVersions(langName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			ui.Error("Error: %v", err)
 			os.Exit(1)
 		}
 		if len(versions) == 0 {
-			fmt.Printf("No versions installed for %s.\n", langName)
+			ui.Info("No versions installed for %s.", langName)
 			return
 		}
 		fmt.Printf("%s versions:\n", langName)

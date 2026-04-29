@@ -6,6 +6,7 @@ import (
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/install"
+	"github.com/chris/vern/internal/ui"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,7 @@ If no version is supplied, shows available installed versions to choose from.`,
 			version := args[1]
 			versions, err := install.GetInstalledVersions(langName)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				ui.Error("Error: %v", err)
 				os.Exit(1)
 			}
 
@@ -36,9 +37,9 @@ If no version is supplied, shows available installed versions to choose from.`,
 			}
 			if !found {
 				if len(versions) == 0 {
-					fmt.Printf("No versions installed for %s.\n", langName)
+					ui.Info("No versions installed for %s.", langName)
 				} else {
-					fmt.Printf("Version %s not installed for %s.\n", version, langName)
+					ui.Warn("Version %s not installed for %s.", version, langName)
 					fmt.Printf("Installed versions:\n")
 					for _, v := range versions {
 						fmt.Printf("  %s\n", v)
@@ -50,20 +51,20 @@ If no version is supplied, shows available installed versions to choose from.`,
 			defaults, _ := config.LoadDefaults()
 			defaults[langName] = version
 			if err := config.SaveDefaults(defaults); err != nil {
-				fmt.Fprintf(os.Stderr, "Error saving defaults: %v\n", err)
+				ui.Error("Error saving defaults: %v", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Set %s %s as default\n", langName, version)
+			ui.Success("Set %s %s as default", langName, version)
 			return
 		}
 
 		versions, err := install.GetInstalledVersions(langName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			ui.Error("Error: %v", err)
 			os.Exit(1)
 		}
 		if len(versions) == 0 {
-			fmt.Printf("No versions installed for %s. Run 'vern install %s' first.\n", langName, langName)
+			ui.Info("No versions installed for %s. Run 'vern install %s' first.", langName, langName)
 			os.Exit(1)
 		}
 
@@ -95,9 +96,9 @@ If no version is supplied, shows available installed versions to choose from.`,
 
 		defaults[langName] = selectedVersion
 		if err := config.SaveDefaults(defaults); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving defaults: %v\n", err)
+			ui.Error("Error saving defaults: %v", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Set %s %s as default\n", langName, selectedVersion)
+		ui.Success("Set %s %s as default", langName, selectedVersion)
 	},
 }

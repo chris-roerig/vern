@@ -14,7 +14,7 @@ var helpCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("vern - Version Number Manager (v%s)\n", Version)
 		fmt.Print(`
-A programming language version installation manager that just makes sense.
+A programming language version installation manager. It works like you think.
 
 USAGE:
     vern <command> [arguments]

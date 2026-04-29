@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/chris/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -30,14 +31,14 @@ Otherwise creates an empty .vern file for you to edit.`,
 		}
 
 		if err := os.WriteFile(".vern", []byte(content), 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating .vern file: %v\n", err)
+			ui.Error("Error creating .vern file: %v", err)
 			os.Exit(1)
 		}
 
 		if content == "" {
-			fmt.Println("Created empty .vern file")
+			ui.Success("Created empty .vern file")
 		} else {
-			fmt.Printf("Created .vern file: %s", content)
+			ui.Success("Created .vern file: %s", content)
 		}
 	},
 }

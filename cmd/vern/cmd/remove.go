@@ -8,6 +8,7 @@ import (
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/install"
+	"github.com/chris/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -22,11 +23,11 @@ Uses checkbox multi-select - space to select, enter to confirm.`,
 
 		versions, err := install.GetInstalledVersions(langName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			ui.Error("Error: %v", err)
 			os.Exit(1)
 		}
 		if len(versions) == 0 {
-			fmt.Printf("No versions installed for %s.\n", langName)
+			ui.Info("No versions installed for %s.", langName)
 			return
 		}
 
@@ -93,9 +94,9 @@ Uses checkbox multi-select - space to select, enter to confirm.`,
 		removedDefault := false
 		for _, item := range selectedItems {
 			if err := install.RemoveVersion(langName, item.version); err != nil {
-				fmt.Fprintf(os.Stderr, "Error removing %s: %v\n", item.version, err)
+				ui.Error("Error removing %s: %v", item.version, err)
 			} else {
-				fmt.Printf("Removed %s %s\n", langName, item.version)
+				ui.Success("Removed %s %s", langName, item.version)
 				if item.version == currentDefault {
 					removedDefault = true
 				}
@@ -108,11 +109,11 @@ Uses checkbox multi-select - space to select, enter to confirm.`,
 				newDefault := remaining[len(remaining)-1]
 				defaults[langName] = newDefault
 				config.SaveDefaults(defaults)
-				fmt.Printf("Set %s %s as new default\n", langName, newDefault)
+				ui.Success("Set %s %s as new default", langName, newDefault)
 			} else {
 				delete(defaults, langName)
 				config.SaveDefaults(defaults)
-				fmt.Printf("No versions remaining for %s\n", langName)
+				ui.Info("No versions remaining for %s", langName)
 			}
 		}
 	},

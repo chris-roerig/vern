@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/chris/vern/internal/config"
+	"github.com/chris/vern/internal/ui"
 	"github.com/chris/vern/internal/version"
 )
 
@@ -55,7 +56,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		return fmt.Errorf("failed to render download URL: %w", err)
 	}
 
-	fmt.Printf("Downloading %s %s from %s...\n", lang.Name, versionStr, url)
+	ui.Info("Downloading %s %s from %s...", lang.Name, versionStr, url)
 
 	tmpFile, err := downloadFile(url)
 	if err != nil {
@@ -70,7 +71,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 	}
 	defer os.RemoveAll(buildDir)
 
-	fmt.Printf("Extracting %s %s...\n", lang.Name, versionStr)
+	ui.Info("Extracting %s %s...", lang.Name, versionStr)
 
 	if err := extractArchive(tmpFile, buildDir, lang.Install.ExtractType); err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
@@ -78,7 +79,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 
 	// If build config is specified, compile from source
 	if lang.Install.BuildConfig != "" {
-		fmt.Printf("Building %s %s from source...\n", lang.Name, versionStr)
+		ui.Info("Building %s %s from source...", lang.Name, versionStr)
 		
 		// Find the extracted source directory
 		sourceDir := buildDir
@@ -92,7 +93,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 
 		// Run build config
 		configCmd := renderTemplateForBuild(lang.Install.BuildConfig, data)
-		fmt.Printf("Running: %s\n", configCmd)
+		ui.Dim("Running: %s", configCmd)
 		if err := runCommand(sourceDir, configCmd); err != nil {
 			return fmt.Errorf("build config failed: %w", err)
 		}
@@ -100,7 +101,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		// Run build command
 		if lang.Install.BuildCommand != "" {
 			buildCmd := renderTemplateForBuild(lang.Install.BuildCommand, data)
-			fmt.Printf("Running: %s\n", buildCmd)
+			ui.Dim("Running: %s", buildCmd)
 			if err := runCommand(sourceDir, buildCmd); err != nil {
 				return fmt.Errorf("build failed: %w", err)
 			}
@@ -124,7 +125,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		return fmt.Errorf("binary not found at %s after install", lang.Install.BinRelPath)
 	}
 
-	fmt.Printf("Successfully installed %s %s\n", lang.Name, versionStr)
+	ui.Success("Successfully installed %s %s", lang.Name, versionStr)
 	return nil
 }
 
