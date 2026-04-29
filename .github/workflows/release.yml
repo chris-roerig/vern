@@ -35,9 +35,10 @@ jobs:
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o vern-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }} cmd/vern/main.go
         env:
           CGO_ENABLED: 0
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: vern-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}
         env:
@@ -65,7 +66,7 @@ jobs:
           EOF
 
       - name: Commit manifest
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "Update manifest for ${{ steps.version.outputs.VERSION }}"
           file_pattern: languages/manifest.json
