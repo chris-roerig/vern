@@ -151,6 +151,9 @@ main() {
     download_languages
     setup_path
 
+    info "Running vern setup..."
+    "$INSTALL_DIR/vern" setup
+
     echo ""
     info "Vern $LATEST installed successfully!"
     info "Run 'vern help' to get started."
