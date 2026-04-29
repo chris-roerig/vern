@@ -30,7 +30,6 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(removeCmd)
 	rootCmd.AddCommand(defaultCmd)
-	rootCmd.AddCommand(helpCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(implodeCmd)
