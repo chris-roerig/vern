@@ -18,8 +18,8 @@ languages:
       download_template: "https://www.python.org/ftp/python/{{.Version}}/Python-{{.Version}}.tgz"
       extract_type: "tar.gz"
       bin_rel_path: "bin/python3"
-      build_config: "./configure --prefix={{.InstallDir}}"
-      build_command: "make -j$(nproc) && make install"
+      build_config: "./configure --prefix={{.InstallDir}} $(uname -s | grep -q Darwin && echo \"--build=$(uname -m)-apple-darwin\")"
+      build_command: "make -j$(sysctl -n hw.ncpu 2>/dev/null || nproc) && make install"
 
   - name: node
     binary_name: node
@@ -40,5 +40,5 @@ languages:
       download_template: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz"
       extract_type: "tar.gz"
       bin_rel_path: "bin/ruby"
-      build_config: "./configure --prefix={{.InstallDir}}"
-      build_command: "make -j$(nproc) && make install"
+      build_config: "./configure --prefix={{.InstallDir}} $(uname -s | grep -q Darwin && echo \"--build=$(uname -m)-apple-darwin\")"
+      build_command: "make -j$(sysctl -n hw.ncpu 2>/dev/null || nproc) && make install"
