@@ -12,7 +12,7 @@ var Version = "1.0.0"
 var rootCmd = &cobra.Command{
 	Use:                "vern",
 	Short:              "Vern - Version Number Manager",
-	Long:               `Vern is a programming language version installation manager. It works like you think.`,
+	Long:               `Vern is a programming language version installation manager. It works like you think it should.`,
 	CompletionOptions:  cobra.CompletionOptions{HiddenDefaultCmd: true},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(ui.Logo)
