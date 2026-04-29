@@ -103,8 +103,8 @@ func createDefaultConfig(path string) error {
 				Name:       "ruby",
 				BinaryName: "ruby",
 				VersionSource: VersionSource{
-					URL:          "https://cache.ruby-lang.org/pub/ruby/",
-					VersionRegex: `(\d+\.\d+\.\d+)/`,
+					URL:          "https://www.ruby-lang.org/en/downloads/releases/",
+					VersionRegex: `Ruby (\d+\.\d+\.\d+)`,
 				},
 				Install: Install{
 					DownloadTemplate: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz",

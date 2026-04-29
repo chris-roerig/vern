@@ -34,8 +34,8 @@ languages:
   - name: ruby
     binary_name: ruby
     version_source:
-      url: "https://cache.ruby-lang.org/pub/ruby/"
-      version_regex: "(\\d+\\.\\d+\\.\\d+)/"
+      url: "https://www.ruby-lang.org/en/downloads/releases/"
+      version_regex: "Ruby (\\d+\\.\\d+\\.\\d+)"
     install:
       download_template: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz"
       extract_type: "tar.gz"
