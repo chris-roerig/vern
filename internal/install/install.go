@@ -18,6 +18,7 @@ import (
 type TemplateData struct {
 	Version    string
 	MajorMinor string
+	InstallDir  string
 }
 
 func DownloadAndInstall(lang *config.Language, versionStr string) error {
@@ -29,6 +30,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 	data := TemplateData{
 		Version:    versionStr,
 		MajorMinor: majorMinor(versionStr),
+		InstallDir:  installDir,
 	}
 
 	url, err := renderTemplate(lang.Install.DownloadTemplate, data)
@@ -44,15 +46,59 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 	}
 	defer os.Remove(tmpFile)
 
+	// Create a temp directory for extraction and possible build
+	buildDir, err := os.MkdirTemp("", "vern-build-*")
+	if err != nil {
+		return fmt.Errorf("failed to create build directory: %w", err)
+	}
+	defer os.RemoveAll(buildDir)
+
 	fmt.Printf("Extracting %s %s...\n", lang.Name, versionStr)
 
+	if err := extractArchive(tmpFile, buildDir, lang.Install.ExtractType); err != nil {
+		return fmt.Errorf("extraction failed: %w", err)
+	}
+
+	// If build config is specified, compile from source
+	if lang.Install.BuildConfig != "" {
+		fmt.Printf("Building %s %s from source...\n", lang.Name, versionStr)
+		
+		// Find the extracted source directory
+		sourceDir := buildDir
+		entries, err := os.ReadDir(buildDir)
+		if err != nil {
+			return fmt.Errorf("failed to read build directory: %w", err)
+		}
+		if len(entries) == 1 && entries[0].IsDir() {
+			sourceDir = filepath.Join(buildDir, entries[0].Name())
+		}
+
+		// Run build config
+		configCmd := renderTemplateForBuild(lang.Install.BuildConfig, data)
+		fmt.Printf("Running: %s\n", configCmd)
+		if err := runCommand(sourceDir, configCmd); err != nil {
+			return fmt.Errorf("build config failed: %w", err)
+		}
+
+		// Run build command
+		if lang.Install.BuildCommand != "" {
+			buildCmd := renderTemplateForBuild(lang.Install.BuildCommand, data)
+			fmt.Printf("Running: %s\n", buildCmd)
+			if err := runCommand(sourceDir, buildCmd); err != nil {
+				return fmt.Errorf("build failed: %w", err)
+			}
+		}
+	}
+
+	// Create install directory
 	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return fmt.Errorf("failed to create install directory: %w", err)
 	}
 
-	if err := extractArchive(tmpFile, installDir, lang.Install.ExtractType); err != nil {
+	// Move built files to install directory
+	if err := moveDirContents(buildDir, installDir); err != nil {
 		os.RemoveAll(installDir)
-		return fmt.Errorf("extraction failed: %w", err)
+		return fmt.Errorf("failed to move files to install directory: %w", err)
 	}
 
 	binPath := filepath.Join(installDir, lang.Install.BinRelPath)
@@ -355,6 +401,85 @@ func IsPathSet() bool {
 	path := os.Getenv("PATH")
 	shimsDir := config.ShimsDir()
 	return strings.Contains(path, shimsDir)
+}
+
+func renderTemplateForBuild(templateStr string, data TemplateData) string {
+	result := strings.ReplaceAll(templateStr, "{{.InstallDir}}", data.InstallDir)
+	result = strings.ReplaceAll(result, "{{.Version}}", data.Version)
+	result = strings.ReplaceAll(result, "{{.MajorMinor}}", data.MajorMinor)
+	return result
+}
+
+func runCommand(dir, cmdStr string) error {
+	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func moveDirContents(src, dst string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		if err := os.Rename(srcPath, dstPath); err != nil {
+			// If rename fails (cross-device), try copy
+			if err := copyDirRecursive(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func copyDirRecursive(src, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if !srcInfo.IsDir() {
+		return copyFile(src, dst)
+	}
+
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		if err := copyDirRecursive(srcPath, dstPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }
 
 func GetShellHook() string {

@@ -26,6 +26,8 @@ type Install struct {
 	DownloadTemplate string `yaml:"download_template"`
 	ExtractType      string `yaml:"extract_type"`
 	BinRelPath       string `yaml:"bin_rel_path"`
+	BuildConfig      string `yaml:"build_config"`
+	BuildCommand     string `yaml:"build_command"`
 }
 
 type Config struct {
@@ -77,13 +79,15 @@ func createDefaultConfig(path string) error {
 				Name:       "python",
 				BinaryName: "python3",
 				VersionSource: VersionSource{
-					URL:          "https://github.com/indygreg/python-build-standalone/releases/expanded_assets/20241016",
-					VersionRegex: `cpython-(\d+\.\d+\.\d+)\+\d+-x86_64-unknown-linux-gnu-install_only`,
+					URL:          "https://www.python.org/ftp/python/",
+					VersionRegex: `(\d+\.\d+\.\d+)/`,
 				},
 				Install: Install{
-					DownloadTemplate: "https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-{{.Version}}+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz",
+					DownloadTemplate: "https://www.python.org/ftp/python/{{.Version}}/Python-{{.Version}}.tgz",
 					ExtractType:      "tar.gz",
 					BinRelPath:       "bin/python3",
+					BuildConfig:      "./configure --prefix={{.InstallDir}}",
+					BuildCommand:     "make -j$(nproc) && make install",
 				},
 			},
 			{
@@ -110,6 +114,8 @@ func createDefaultConfig(path string) error {
 					DownloadTemplate: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz",
 					ExtractType:      "tar.gz",
 					BinRelPath:       "bin/ruby",
+					BuildConfig:      "./configure --prefix={{.InstallDir}}",
+					BuildCommand:     "make -j$(nproc) && make install",
 				},
 			},
 		},
