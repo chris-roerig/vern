@@ -6,7 +6,7 @@
                     ▀▀         ▀▀   
 ```
 
-# vern{n}
+# ver{n}
 
 **The version manager that just makes sense.**
 
