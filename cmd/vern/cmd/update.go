@@ -1,0 +1,199 @@
+package cmd
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+
+	"github.com/chris/vern/internal/config"
+	"github.com/spf13/cobra"
+)
+
+var (
+	updateOnlySelf  bool
+	updateOnlyLangs bool
+)
+
+var updateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update vern binary and language list",
+	Long: `Update vern to the latest version and/or update the supported language list.
+By default, updates both. Use --only-self or --only-langs to update just one.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if !updateOnlyLangs {
+			if err := updateSelf(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error updating vern: %v\n", err)
+			}
+		}
+		if !updateOnlySelf {
+			if err := updateLangs(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error updating language list: %v\n", err)
+			}
+		}
+	},
+}
+
+func updateSelf() error {
+	fmt.Println("Checking for vern updates...")
+
+	resp, err := http.Get("https://api.github.com/repos/chris-roerig/vern/releases/latest")
+	if err != nil {
+		return fmt.Errorf("failed to check for updates: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return fmt.Errorf("failed to parse release info: %w", err)
+	}
+
+	latestVersion := release.TagName
+	if latestVersion == "" {
+		return fmt.Errorf("could not determine latest version")
+	}
+
+	if latestVersion == "v"+Version {
+		fmt.Println("Vern is already at the latest version:", Version)
+		return nil
+	}
+
+	fmt.Printf("Updating vern from %s to %s...\n", Version, latestVersion)
+
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+	if goarch == "amd64" {
+		goarch = "x86_64"
+	} else if goarch == "arm64" {
+		goarch = "aarch64"
+	}
+
+	assetName := fmt.Sprintf("vern-%s-%s-%s", latestVersion, goos, goarch)
+	if goos == "darwin" {
+		assetName = fmt.Sprintf("vern-%s-%s-%s", latestVersion, goos, runtime.GOARCH)
+	}
+	downloadURL := fmt.Sprintf("https://github.com/chris-roerig/vern/releases/download/%s/%s", latestVersion, assetName)
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("could not determine current executable path: %w", err)
+	}
+
+	fmt.Printf("Downloading from %s...\n", downloadURL)
+	tmpFile, err := downloadBinary(downloadURL)
+	if err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+	defer os.Remove(tmpFile)
+
+	if err := os.Rename(exePath, exePath+".old"); err != nil {
+		return fmt.Errorf("failed to backup current binary: %w", err)
+	}
+
+	if err := os.Rename(tmpFile, exePath); err != nil {
+		os.Rename(exePath+".old", exePath)
+		return fmt.Errorf("failed to replace binary: %w", err)
+	}
+	os.Remove(exePath + ".old")
+
+	fmt.Printf("Updated vern to %s. Restart your shell.\n", latestVersion)
+	return nil
+}
+
+func updateLangs() error {
+	fmt.Println("Checking for language list updates...")
+
+	manifestURL := "https://raw.githubusercontent.com/chris-roerig/vern/main/languages/manifest.json"
+	resp, err := http.Get(manifestURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch manifest: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("manifest returned %d", resp.StatusCode)
+	}
+
+	var manifest struct {
+		LatestLangsVersion string `json:"latest_langs_version"`
+		LangsURL           string `json:"langs_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&manifest); err != nil {
+		return fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	currentVersion := config.LoadLangsVersion()
+	if manifest.LatestLangsVersion == currentVersion {
+		fmt.Println("Language list is already at the latest version:", currentVersion)
+		return nil
+	}
+
+	fmt.Printf("Updating language list from %s to %s...\n", currentVersion, manifest.LatestLangsVersion)
+
+	langsResp, err := http.Get(manifest.LangsURL)
+	if err != nil {
+		return fmt.Errorf("failed to download language list: %w", err)
+	}
+	defer langsResp.Body.Close()
+
+	if langsResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("language list returned %d", langsResp.StatusCode)
+	}
+
+	data, err := io.ReadAll(langsResp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read language list: %w", err)
+	}
+
+	configPath := config.ConfigDir()
+	langsPath := filepath.Join(configPath, "languages.yaml")
+	if err := os.WriteFile(langsPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to save language list: %w", err)
+	}
+
+	config.SaveLangsVersion(manifest.LatestLangsVersion)
+	fmt.Printf("Updated language list to %s\n", manifest.LatestLangsVersion)
+	return nil
+}
+
+func downloadBinary(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	tmpFile, err := os.CreateTemp("", "vern-update-*")
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	tmpFile.Close()
+	os.Chmod(tmpFile.Name(), 0755)
+
+	return tmpFile.Name(), nil
+}
+
+func init() {
+	updateCmd.Flags().BoolVar(&updateOnlySelf, "only-self", false, "Only update vern binary")
+	updateCmd.Flags().BoolVar(&updateOnlyLangs, "only-langs", false, "Only update language list")
+}
