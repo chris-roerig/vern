@@ -1,0 +1,44 @@
+languages:
+  - name: go
+    binary_name: go
+    version_source:
+      url: "https://go.dev/dl/"
+      version_regex: "go(\\d+\\.\\d+\\.\\d+)\\.linux-amd64\\.tar\\.gz"
+    install:
+      download_template: "https://go.dev/dl/go{{.Version}}.{{.OS}}-{{.Arch}}.tar.gz"
+      extract_type: "tar.gz"
+      bin_rel_path: "go/bin/go"
+
+  - name: python
+    binary_name: python3
+    version_source:
+      url: "https://www.python.org/ftp/python/"
+      version_regex: "(\\d+\\.\\d+\\.\\d+)/"
+    install:
+      download_template: "https://www.python.org/ftp/python/{{.Version}}/Python-{{.Version}}.tgz"
+      extract_type: "tar.gz"
+      bin_rel_path: "bin/python3"
+      build_config: "./configure --prefix={{.InstallDir}}"
+      build_command: "make -j$(nproc) && make install"
+
+  - name: node
+    binary_name: node
+    version_source:
+      url: "https://nodejs.org/dist/"
+      version_regex: "v(\\d+\\.\\d+\\.\\d+)/"
+    install:
+      download_template: "https://nodejs.org/dist/v{{.Version}}/node-v{{.Version}}-{{.OS}}-{{.ArchAlt}}.tar.xz"
+      extract_type: "tar.xz"
+      bin_rel_path: "bin/node"
+
+  - name: ruby
+    binary_name: ruby
+    version_source:
+      url: "https://cache.ruby-lang.org/pub/ruby/"
+      version_regex: "(\\d+\\.\\d+\\.\\d+)/"
+    install:
+      download_template: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz"
+      extract_type: "tar.gz"
+      bin_rel_path: "bin/ruby"
+      build_config: "./configure --prefix={{.InstallDir}}"
+      build_command: "make -j$(nproc) && make install"

@@ -73,14 +73,26 @@ setup_dirs() {
 
 download_languages() {
     info "Downloading language list..."
-    LANGS_URL="https://raw.githubusercontent.com/$VERN_REPO/main/languages/v1.0.0.yaml"
+    MANIFEST_URL="https://raw.githubusercontent.com/$VERN_REPO/main/languages/manifest.json"
+    MANIFEST=$(curl -fsSL "$MANIFEST_URL") || {
+        warn "Failed to fetch manifest, using defaults on first run"
+        return
+    }
+    LANGS_URL=$(echo "$MANIFEST" | grep '"langs_url"' | sed -E 's/.*"langs_url"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+    LANGS_VERSION=$(echo "$MANIFEST" | grep '"latest_langs_version"' | sed -E 's/.*"latest_langs_version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+
+    if [ -z "$LANGS_URL" ]; then
+        warn "Failed to parse manifest, will use defaults on first run"
+        return
+    fi
+
     if curl -fsSL "$LANGS_URL" -o "$CONFIG_DIR/languages.yaml"; then
         info "Language list installed to $CONFIG_DIR/languages.yaml"
     else
         warn "Failed to download language list, will use defaults on first run"
     fi
 
-    echo "1.0.0" > "$CONFIG_DIR/langs_version"
+    echo "${LANGS_VERSION:-1.0.0}" > "$CONFIG_DIR/langs_version"
 }
 
 setup_path() {

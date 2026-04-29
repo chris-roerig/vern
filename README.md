@@ -52,6 +52,8 @@ The installer will:
     vern update --only-self            Update vern binary only
     vern update --only-langs           Update language list only
 
+    vern setup                         Create shims for version switching
+
 ---
 
 ## CURRENT OFFICIALLY SUPPORTED LANGUAGES
@@ -74,7 +76,7 @@ To add a new language, add an entry to the languages list:
           url: "https://forge.rust-lang.org/infra/other-installation-methods.html"
           version_regex: "(\\d+\\.\\d+\\.\\d+)"
         install:
-          download_template: "https://static.rust-lang.org/dist/rust-{{.Version}}-x86_64-unknown-linux-gnu.tar.gz"
+          download_template: "https://static.rust-lang.org/dist/rust-{{.Version}}-{{.Arch}}-unknown-linux-gnu.tar.gz"
           extract_type: "tar.gz"
           bin_rel_path: "rustc/bin/rustc"
 
@@ -85,9 +87,17 @@ To add a new language, add an entry to the languages list:
       url          - URL to scrape for available versions
       version_regex - Regex to extract version numbers from the page
     install
-      download_template - Go template for download URL ({{.Version}}, {{.MajorMinor}})
+      download_template - Go template for download URL
+                          Available variables:
+                            {{.Version}}    - Full version (e.g., 1.21.0)
+                            {{.MajorMinor}} - Major.Minor (e.g., 1.21)
+                            {{.OS}}         - Operating system (linux, darwin)
+                            {{.Arch}}       - Architecture (amd64, arm64)
+                            {{.ArchAlt}}    - Alt architecture name (x64, arm64)
       extract_type      - Archive type: "tar.gz" or "tar.xz"
       bin_rel_path      - Path to binary relative to install directory
+      build_config      - Optional: configure command (e.g., ./configure --prefix={{.InstallDir}})
+      build_command     - Optional: build command (e.g., make -j$(nproc) && make install)
 
 ---
 
@@ -106,6 +116,10 @@ Set a global default:
     vern default python 3.11.2
 
 For version switching to work, ensure vern shims are in your PATH:
+
+    vern setup
+
+Or add manually:
 
     export PATH="$HOME/.local/share/vern/shims:$PATH"
 

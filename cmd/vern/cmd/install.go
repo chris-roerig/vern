@@ -43,7 +43,7 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 				if i > 0 {
 					fmt.Fprintf(os.Stderr, ", ")
 				}
-				fmt.Fprintf(os.Stderr, l.Name)
+				fmt.Fprintf(os.Stderr, "%s", l.Name)
 			}
 			fmt.Fprintf(os.Stderr, "\n")
 			os.Exit(1)

@@ -70,7 +70,7 @@ func createDefaultConfig(path string) error {
 					VersionRegex: `go(\d+\.\d+\.\d+)\.linux-amd64\.tar\.gz`,
 				},
 				Install: Install{
-					DownloadTemplate: "https://go.dev/dl/go{{.Version}}.linux-amd64.tar.gz",
+					DownloadTemplate: "https://go.dev/dl/go{{.Version}}.{{.OS}}-{{.Arch}}.tar.gz",
 					ExtractType:      "tar.gz",
 					BinRelPath:       "go/bin/go",
 				},
@@ -98,7 +98,7 @@ func createDefaultConfig(path string) error {
 					VersionRegex: `v(\d+\.\d+\.\d+)/`,
 				},
 				Install: Install{
-					DownloadTemplate: "https://nodejs.org/dist/v{{.Version}}/node-v{{.Version}}-linux-x64.tar.xz",
+					DownloadTemplate: "https://nodejs.org/dist/v{{.Version}}/node-v{{.Version}}-{{.OS}}-{{.ArchAlt}}.tar.xz",
 					ExtractType:      "tar.xz",
 					BinRelPath:       "bin/node",
 				},
@@ -107,8 +107,8 @@ func createDefaultConfig(path string) error {
 				Name:       "ruby",
 				BinaryName: "ruby",
 				VersionSource: VersionSource{
-					URL:          "https://www.ruby-lang.org/en/downloads/",
-					VersionRegex: `ruby-(\d+\.\d+\.\d+)\.tar\.gz`,
+					URL:          "https://cache.ruby-lang.org/pub/ruby/",
+					VersionRegex: `(\d+\.\d+\.\d+)/`,
 				},
 				Install: Install{
 					DownloadTemplate: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz",

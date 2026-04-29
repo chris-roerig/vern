@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/install"
@@ -86,16 +85,13 @@ If no version is supplied, shows available installed versions to choose from.`,
 			Size:  len(items),
 		}
 
-		_, result, err := prompt.Run()
+		idx, _, err := prompt.Run()
 		if err != nil {
 			fmt.Printf("Cancelled\n")
 			return
 		}
 
-		selectedVersion := strings.TrimSuffix(strings.TrimSuffix(result, " (current)"), "")
-		if selectedVersion == "" {
-			selectedVersion = result
-		}
+		selectedVersion := versions[idx]
 
 		defaults[langName] = selectedVersion
 		if err := config.SaveDefaults(defaults); err != nil {

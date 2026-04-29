@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -52,8 +53,9 @@ Uses checkbox multi-select - space to select, enter to confirm.`,
 			fmt.Printf("  %d) %s\n", i+1, item.name)
 		}
 		fmt.Print("Selection: ")
-		var input string
-		fmt.Scanln(&input)
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		input := scanner.Text()
 
 		if input == "" {
 			fmt.Println("No versions selected")
@@ -81,8 +83,8 @@ Uses checkbox multi-select - space to select, enter to confirm.`,
 			fmt.Printf("%s ", item.version)
 		}
 		fmt.Print("\nConfirm? [y/N]: ")
-		var confirm string
-		fmt.Scanln(&confirm)
+		scanner.Scan()
+		confirm := scanner.Text()
 		if strings.ToLower(confirm) != "y" {
 			fmt.Println("Cancelled")
 			return

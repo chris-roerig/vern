@@ -1,9 +1,8 @@
 # Binaries
-vern
+/vern
 vern-*
 
 # Config files with local data
-*.yaml
 languages.yaml
 langs_version
 
@@ -33,6 +32,9 @@ go.work
 # OS files
 .DS_Store
 Thumbs.db
+
+# Session files
+session-*.md
 
 # Local vern data
 installs/

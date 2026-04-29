@@ -9,16 +9,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/version"
 )
 
+var httpClient = &http.Client{Timeout: 5 * time.Minute}
+
 type TemplateData struct {
 	Version    string
 	MajorMinor string
-	InstallDir  string
+	InstallDir string
+	OS         string
+	Arch       string
+	ArchAlt    string
+}
+
+func archAlt(goarch string) string {
+	if goarch == "amd64" {
+		return "x64"
+	}
+	return goarch
 }
 
 func DownloadAndInstall(lang *config.Language, versionStr string) error {
@@ -30,7 +44,10 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 	data := TemplateData{
 		Version:    versionStr,
 		MajorMinor: majorMinor(versionStr),
-		InstallDir:  installDir,
+		InstallDir: installDir,
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
+		ArchAlt:    archAlt(runtime.GOARCH),
 	}
 
 	url, err := renderTemplate(lang.Install.DownloadTemplate, data)
@@ -123,11 +140,14 @@ func renderTemplate(tmpl string, data TemplateData) (string, error) {
 	result := tmpl
 	result = strings.ReplaceAll(result, "{{.Version}}", data.Version)
 	result = strings.ReplaceAll(result, "{{.MajorMinor}}", data.MajorMinor)
+	result = strings.ReplaceAll(result, "{{.OS}}", data.OS)
+	result = strings.ReplaceAll(result, "{{.Arch}}", data.Arch)
+	result = strings.ReplaceAll(result, "{{.ArchAlt}}", data.ArchAlt)
 	return result, nil
 }
 
 func downloadFile(url string) (string, error) {
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -142,7 +162,7 @@ func downloadFile(url string) (string, error) {
 		return "", err
 	}
 
-	_, err = io.Copy(tmpFile, resp.Body)
+	_, err = io.Copy(tmpFile, io.LimitReader(resp.Body, 500*1024*1024)) // 500MB max
 	if err != nil {
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
@@ -190,10 +210,17 @@ func extractTarXz(filePath, destDir string) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start xz: %w", err)
 	}
-	defer cmd.Wait()
 
 	tr := tar.NewReader(stdout)
-	return extractTar(tr, destDir)
+	tarErr := extractTar(tr, destDir)
+
+	if waitErr := cmd.Wait(); waitErr != nil {
+		if tarErr != nil {
+			return fmt.Errorf("xz failed: %w (tar error: %v)", waitErr, tarErr)
+		}
+		return fmt.Errorf("xz failed: %w", waitErr)
+	}
+	return tarErr
 }
 
 func extractTar(tr *tar.Reader, destDir string) error {
@@ -229,6 +256,11 @@ func extractTar(tr *tar.Reader, destDir string) error {
 		}
 
 		target := filepath.Join(destDir, name)
+
+		// Path traversal protection
+		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("tar entry attempts path traversal: %s", hdr.Name)
+		}
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:
@@ -466,13 +498,18 @@ func copyDirRecursive(src, dst string) error {
 }
 
 func copyFile(src, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
 
-	dstFile, err := os.Create(dst)
+	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
 		return err
 	}

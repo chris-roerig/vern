@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,10 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/chris/vern/internal/config"
 	"github.com/spf13/cobra"
 )
+
+var httpClient = &http.Client{Timeout: 5 * time.Minute}
 
 var (
 	updateOnlySelf  bool
@@ -40,7 +46,7 @@ By default, updates both. Use --only-self or --only-langs to update just one.`,
 func updateSelf() error {
 	fmt.Println("Checking for vern updates...")
 
-	resp, err := http.Get("https://api.github.com/repos/chris-roerig/vern/releases/latest")
+	resp, err := httpClient.Get("https://api.github.com/repos/chris-roerig/vern/releases/latest")
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -92,6 +98,12 @@ func updateSelf() error {
 	}
 	defer os.Remove(tmpFile)
 
+	// Verify checksum
+	checksumURL := downloadURL + ".sha256"
+	if err := verifyChecksum(tmpFile, checksumURL); err != nil {
+		return fmt.Errorf("checksum verification failed: %w", err)
+	}
+
 	if err := os.Rename(exePath, exePath+".old"); err != nil {
 		return fmt.Errorf("failed to backup current binary: %w", err)
 	}
@@ -110,7 +122,7 @@ func updateLangs() error {
 	fmt.Println("Checking for language list updates...")
 
 	manifestURL := "https://raw.githubusercontent.com/chris-roerig/vern/main/languages/manifest.json"
-	resp, err := http.Get(manifestURL)
+	resp, err := httpClient.Get(manifestURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch manifest: %w", err)
 	}
@@ -136,7 +148,7 @@ func updateLangs() error {
 
 	fmt.Printf("Updating language list from %s to %s...\n", currentVersion, manifest.LatestLangsVersion)
 
-	langsResp, err := http.Get(manifest.LangsURL)
+	langsResp, err := httpClient.Get(manifest.LangsURL)
 	if err != nil {
 		return fmt.Errorf("failed to download language list: %w", err)
 	}
@@ -146,7 +158,7 @@ func updateLangs() error {
 		return fmt.Errorf("language list returned %d", langsResp.StatusCode)
 	}
 
-	data, err := io.ReadAll(langsResp.Body)
+	data, err := io.ReadAll(io.LimitReader(langsResp.Body, 1*1024*1024)) // 1MB max
 	if err != nil {
 		return fmt.Errorf("failed to read language list: %w", err)
 	}
@@ -163,7 +175,7 @@ func updateLangs() error {
 }
 
 func downloadBinary(url string) (string, error) {
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -178,7 +190,7 @@ func downloadBinary(url string) (string, error) {
 		return "", err
 	}
 
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+	if _, err := io.Copy(tmpFile, io.LimitReader(resp.Body, 100*1024*1024)); err != nil { // 100MB max
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
 		return "", err
@@ -188,6 +200,45 @@ func downloadBinary(url string) (string, error) {
 	os.Chmod(tmpFile.Name(), 0755)
 
 	return tmpFile.Name(), nil
+}
+
+func verifyChecksum(filePath, checksumURL string) error {
+	resp, err := httpClient.Get(checksumURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch checksum: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Warning: no checksum available, skipping verification")
+		return nil
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	if err != nil {
+		return fmt.Errorf("failed to read checksum: %w", err)
+	}
+
+	// sha256sum format: "<hash>  <filename>" or "<hash> <filename>"
+	expectedHash := strings.Fields(strings.TrimSpace(string(data)))[0]
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	actualHash := hex.EncodeToString(h.Sum(nil))
+
+	if actualHash != expectedHash {
+		return fmt.Errorf("expected %s, got %s", expectedHash, actualHash)
+	}
+	fmt.Println("Checksum verified.")
+	return nil
 }
 
 func init() {

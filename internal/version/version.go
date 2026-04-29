@@ -8,9 +8,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/chris/vern/internal/config"
 )
+
+var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 type VersionInfo struct {
 	Full  string
@@ -55,7 +58,7 @@ func (v VersionInfo) Compare(other VersionInfo) int {
 }
 
 func FetchAvailableVersions(lang *config.Language) ([]VersionInfo, error) {
-	resp, err := http.Get(lang.VersionSource.URL)
+	resp, err := httpClient.Get(lang.VersionSource.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch versions: %w", err)
 	}
@@ -65,7 +68,7 @@ func FetchAvailableVersions(lang *config.Language) ([]VersionInfo, error) {
 		return nil, fmt.Errorf("HTTP %d fetching versions", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB max
 	if err != nil {
 		return nil, err
 	}
