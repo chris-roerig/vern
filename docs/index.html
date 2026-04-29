@@ -300,6 +300,8 @@
       <div class="lang-item">Python</div>
       <div class="lang-item">Node.js</div>
       <div class="lang-item">Ruby</div>
+      <div class="lang-item">Rust</div>
+      <div class="lang-item">Zig</div>
       <div class="lang-item more">And more...</div>
     </div>
 
@@ -316,7 +318,7 @@
       </div>
       <div class="feature">
         <h3><i class="ph ph-plug"></i> No plugins needed</h3>
-        <p>Go, Python, Node.js, and Ruby work out of the box. Add more with a simple YAML config.</p>
+        <p>Go, Python, Node.js, Ruby, Rust, and Zig work out of the box. Add more with a simple YAML config.</p>
       </div>
       <div class="feature">
         <h3><i class="ph ph-broom"></i> Clean uninstall</h3>
@@ -327,23 +329,30 @@
     <div class="example">
       <h2>How it works</h2>
       <pre><span class="prompt">$ </span>vern install go
-<span class="output">Installing go 1.24.2...
-Downloading go 1.24.2...
-Successfully installed go 1.24.2
-Set go 1.24.2 as default</span>
+<span class="output">Installing go 1.26.2...
+Downloading go 1.26.2...
+Successfully installed go 1.26.2
+Set go 1.26.2 as default</span>
 
 <span class="prompt">$ </span>vern install python 3.12
 <span class="output">Installing python 3.12.8...
 Building python 3.12.8 from source...
 Successfully installed python 3.12.8</span>
 
-<span class="prompt">$ </span>vern list
-<span class="output">go (1 version):
-  1.24.2 * (default)
-python (1 version):
-  3.12.8 * (default)</span>
+<span class="prompt">$ </span>vern init python 3.11
+<span class="output">Created .vern file: python 3.11</span>  <span class="comment"># uses latest 3.11.x</span>
 
-<span class="prompt">$ </span>echo "python 3.12.8" > .vern  <span class="comment"># pin version per project</span></pre>
+<span class="prompt">$ </span>vern stats
+<span class="output">go (217.9 MB)
+  1.26.2  217.9 MB * (default)
+python (473.6 MB)
+  3.13.13  473.6 MB * (default)
+ruby (580.6 MB)
+  4.0.3  580.6 MB * (default)
+zig (312.5 MB)
+  0.14.0  312.5 MB * (default)
+
+Total: 1.5 GB</span></pre>
     </div>
 
     <footer>
