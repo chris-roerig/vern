@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -111,7 +112,7 @@ func extractArchive(filePath, destDir, extractType string) error {
 	case "tar.gz":
 		return extractTarGz(filePath, destDir)
 	case "tar.xz":
-		return fmt.Errorf("tar.xz extraction not yet implemented")
+		return extractTarXz(filePath, destDir)
 	default:
 		return fmt.Errorf("unsupported archive type: %s", extractType)
 	}
@@ -131,6 +132,28 @@ func extractTarGz(filePath, destDir string) error {
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
+	return extractTar(tr, destDir)
+}
+
+func extractTarXz(filePath, destDir string) error {
+	cmd := exec.Command("xz", "-dc", filePath)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create xz pipe: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start xz: %w", err)
+	}
+	defer cmd.Wait()
+
+	tr := tar.NewReader(stdout)
+	return extractTar(tr, destDir)
+}
+
+func extractTar(tr *tar.Reader, destDir string) error {
+	// Strip top-level directory if present
+	prefix := ""
+	first := true
 
 	for {
 		hdr, err := tr.Next()
@@ -141,7 +164,25 @@ func extractTarGz(filePath, destDir string) error {
 			return err
 		}
 
-		target := filepath.Join(destDir, hdr.Name)
+		// Detect common prefix (top-level dir)
+		if first {
+			parts := strings.SplitN(hdr.Name, "/", 2)
+			if len(parts) == 2 {
+				prefix = parts[0] + "/"
+			}
+			first = false
+		}
+
+	// Strip prefix
+		name := hdr.Name
+		if prefix != "" && strings.HasPrefix(name, prefix) {
+			name = strings.TrimPrefix(name, prefix)
+		}
+		if name == "" {
+			continue
+		}
+
+		target := filepath.Join(destDir, name)
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:

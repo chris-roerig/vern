@@ -77,11 +77,11 @@ func createDefaultConfig(path string) error {
 				Name:       "python",
 				BinaryName: "python3",
 				VersionSource: VersionSource{
-					URL:          "https://www.python.org/ftp/python/",
-					VersionRegex: `(\d+\.\d+\.\d+)/`,
+					URL:          "https://github.com/indygreg/python-build-standalone/releases/expanded_assets/20241016",
+					VersionRegex: `cpython-(\d+\.\d+\.\d+)\+\d+-x86_64-unknown-linux-gnu-install_only`,
 				},
 				Install: Install{
-					DownloadTemplate: "https://www.python.org/ftp/python/{{.Version}}/Python-{{.Version}}.tgz",
+					DownloadTemplate: "https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-{{.Version}}+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz",
 					ExtractType:      "tar.gz",
 					BinRelPath:       "bin/python3",
 				},
@@ -103,8 +103,8 @@ func createDefaultConfig(path string) error {
 				Name:       "ruby",
 				BinaryName: "ruby",
 				VersionSource: VersionSource{
-					URL:          "https://cache.ruby-lang.org/pub/ruby/",
-					VersionRegex: `(\d+\.\d+\.\d+)/`,
+					URL:          "https://www.ruby-lang.org/en/downloads/",
+					VersionRegex: `ruby-(\d+\.\d+\.\d+)\.tar\.gz`,
 				},
 				Install: Install{
 					DownloadTemplate: "https://cache.ruby-lang.org/pub/ruby/{{.MajorMinor}}/ruby-{{.Version}}.tar.gz",
