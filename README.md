@@ -32,28 +32,39 @@ The installer will:
 ## Commands
 
 ```
-vern                                    Print version and help
-vern help                               Print detailed help
+vern                                   Print version and help
+vern help                              Print detailed help
 
-vern install <lang>                     Install latest version
-vern install <lang> {M}                 Install latest {M}.x.x
-vern install <lang> {M}.{m}             Install latest {M}.{m}.x
-vern install <lang> {M}.{m}.{p}         Install exact version
+vern install <lang>                    Install latest version
+vern install <lang> 3                  Install latest 3.x.x
+vern install <lang> 3.11               Install latest 3.11.x
+vern install <lang> 3.11.2             Install exact version
+vern install <lang> --verbose          Show build output
 
-vern list                               List all installed languages
-vern list <lang>                        List installed versions for language
+vern search <lang>                     List available versions
+vern search <lang> 3.11                List matching versions
 
-vern default <lang>                     Interactively select default
-vern default <lang> <version>           Set default directly
+vern list                              List all installed languages
+vern list <lang>                       List installed versions for language
 
-vern remove <lang>                      Multi-select versions to remove
+vern which <lang>                      Show resolved version for current directory
 
-vern update                             Update vern + language list
-vern update --only-self                 Update vern binary only
-vern update --only-langs                Update language list only
+vern default <lang>                    Interactively select default
+vern default <lang> <version>          Set default directly
 
-vern setup                              Create shims for version switching
-vern implode                            Uninstall vern and all installed languages
+vern remove <lang>                     Multi-select versions to remove
+
+vern init                              Create empty .vern file
+vern init <lang> <version>             Create .vern with language and version
+
+vern stats                             Show disk usage per language/version
+
+vern update                            Update vern + language list
+vern update --only-self                Update vern binary only
+vern update --only-langs               Update language list only
+
+vern setup                             Create shims for version switching
+vern implode                           Uninstall vern (select what to remove)
 ```
 
 ---
@@ -64,6 +75,8 @@ vern implode                            Uninstall vern and all installed languag
 - Python
 - Node.js
 - Ruby
+- Rust
+- Zig
 
 ### Adding Programming Languages
 
@@ -180,6 +193,23 @@ source ~/.zshrc
 
 # For fish:
 fish_add_path "$HOME/.local/bin"
+```
+
+---
+
+## Shell Completions
+
+vern supports tab completions for bash, zsh, fish, and PowerShell:
+
+```bash
+# Bash
+vern completion bash >> ~/.bashrc
+
+# Zsh
+vern completion zsh >> ~/.zshrc
+
+# Fish
+vern completion fish > ~/.config/fish/completions/vern.fish
 ```
 
 ---

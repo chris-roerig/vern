@@ -130,7 +130,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 
 		// Run build config
 		configCmd := renderTemplateForBuild(lang.Install.BuildConfig, data)
-		ui.Dim("Running: %s", configCmd)
+		if Verbose { ui.Dim("Running: %s", configCmd) }
 		if err := runCommand(sourceDir, configCmd); err != nil {
 			return fmt.Errorf("build config failed: %w", err)
 		}
@@ -138,7 +138,7 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		// Run build command
 		if lang.Install.BuildCommand != "" {
 			buildCmd := renderTemplateForBuild(lang.Install.BuildCommand, data)
-			ui.Dim("Running: %s", buildCmd)
+			if Verbose { ui.Dim("Running: %s", buildCmd) }
 			if err := runCommand(sourceDir, buildCmd); err != nil {
 				return fmt.Errorf("build failed: %w", err)
 			}

@@ -11,25 +11,38 @@ Vern (Version Number Manager) is a programming language version installation man
 ### Core Packages
 
 - **cmd/vern/** - CLI commands using Cobra
-  - `root.go` - Main entry point, version variable
-  - `install.go` - `vern install` command
-  - `list.go` - `vern list` command  
+  - `root.go` - Main entry point, version variable, ASCII logo display
+  - `install.go` - `vern install` command (with `--verbose` flag)
+  - `search.go` - `vern search` command (partial version filtering)
+  - `list.go` - `vern list` command (semver sorted)
+  - `which.go` - `vern which` command (resolved version for current dir)
   - `remove.go` - `vern remove` command (multi-select)
-  - `default.go` - `vern default` command
-  - `update.go` - `vern update` command
-  - `setup.go` - `vern setup` command (shims)
+  - `default.go` - `vern default` command (promptui select)
+  - `init.go` - `vern init` command (create .vern files)
+  - `stats.go` - `vern stats` command (disk usage)
+  - `update.go` - `vern update` command (self + languages)
+  - `setup.go` - `vern setup` command (shims + version manager detection)
+  - `implode.go` - `vern implode` command (selective uninstall)
 
 - **internal/config/** - Configuration management
-  - `config.go` - Language definitions, config loading, XDG paths
+  - `config.go` - Language definitions, config loading
+  - Uses explicit paths: `~/.config/vern` and `~/.local/share/vern`
   - Supports versioned language lists (separate from binary version)
 
 - **internal/install/** - Installation logic
   - `install.go` - Download, extract, compile from source
   - Supports `tar.gz`, `tar.xz` (via xz command)
-  - Source compilation like pyenv/rbenv (`./configure && make && make install`)
+  - Source compilation (`./configure && make && make install`)
+  - Rust install via `install.sh --prefix`
+  - Download progress bar (MB/percentage)
+  - Verbose mode for build output
 
 - **internal/version/** - Version resolution
   - `version.go` - Version parsing, comparison, fetching available versions from URLs
+
+- **internal/ui/** - Terminal output
+  - `ui.go` - Dracula-themed colored output (Success, Warn, Error, Info, Dim, Accent)
+  - ASCII logo constant
 
 ### Key Concepts
 
@@ -39,48 +52,47 @@ Vern (Version Number Manager) is a programming language version installation man
 - **Defaults** (`~/.local/share/vern/defaults.yaml`) - Global default versions per language
 - **`.vern` files** - Project-level version files (format: `language version`)
 
-## Common Tasks
+## Supported Languages
 
-### Adding a New Language
+- Go - pre-compiled binary
+- Python - compiled from source
+- Node.js - pre-compiled binary
+- Ruby - compiled from source
+- Rust - installed via `install.sh --prefix`
+- Zig - pre-compiled binary
 
-1. Add entry to `internal/config/config.go` `createDefaultConfig()` 
-2. Add entry to `languages/vX.X.X.yaml` for the versioned language list
-3. Update `languages/manifest.json` with new version
-4. Test installation: `vern install <lang> <version>`
+## Template Variables
 
-Language config structure:
-```yaml
-- name: <lang>              # Language identifier
-  binary_name: <bin>         # Executable name (e.g., python3, node, ruby)
-  version_source:
-    url: <url>               # URL to scrape for versions
-    version_regex: <regex>       # Regex to extract versions (capture group 1)
-  install:
-    download_template: <url>     # URL template with {{.Version}}, {{.MajorMinor}}
-    extract_type: tar.gz|tar.xz
-    bin_rel_path: <path>         # Path to binary relative to install dir
-    build_config: <cmd>          # Optional: ./configure --prefix={{.InstallDir}}
-    build_command: <cmd>         # Optional: make -j$(nproc) && make install
-```
+Download URL templates support these variables:
 
-### Version Resolution
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{.Version}}` | Full version | `1.21.0` |
+| `{{.MajorMinor}}` | Major.Minor | `1.21` |
+| `{{.OS}}` | Go's GOOS | `linux`, `darwin` |
+| `{{.Arch}}` | Go's GOARCH | `amd64`, `arm64` |
+| `{{.ArchAlt}}` | Node-style arch | `x64`, `arm64` |
+| `{{.ArchGNU}}` | GNU-style arch | `x86_64`, `aarch64` |
+| `{{.OSAlt}}` | Zig-style OS | `macos`, `linux` |
+| `{{.RustTarget}}` | Rust target triple | `aarch64-apple-darwin` |
+| `{{.InstallDir}}` | Install directory | (used in build commands) |
 
-The `version.ResolveVersion()` function handles:
-- Empty string → latest version
-- Single number (e.g., "3") → latest in that major version
-- Two numbers (e.g., "3.11") → latest in that minor version  
-- Full version (e.g., "3.11.2") → exact version
+## Testing
 
-### Source Compilation
+Tests are in `tests/` directory:
+- `version_test.go` - Version parsing and comparison
+- `platform_test.go` - Arch/OS mapping functions
+- `config_test.go` - Config and .vern file parsing
+- `install_test.go` - Version sorting, installed languages
 
-Languages like Python and Ruby compile from source (like pyenv/rbenv):
-1. Download source tarball
-2. Extract to temp directory
-3. Run `build_config` (e.g., `./configure --prefix=...`)
-4. Run `build_command` (e.g., `make && make install`)
-5. Move built files to install directory
+Run tests: `go test ./tests/ -v`
 
-Pre-compiled languages (Go, Node.js) skip the build steps.
+## CI/CD
+
+- **CI** (`.github/workflows/ci.yml`) - Runs `go vet` and tests on every push to main/staging and PRs
+- **Release** (`.github/workflows/release.yml`) - Tests must pass before building release binaries
+- Release builds for: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64
+- SHA256 checksums published alongside binaries
 
 ## Build & Release
 
@@ -90,88 +102,37 @@ go build -o vern cmd/vern/main.go
 ```
 
 ### Release Process
-1. Bump version in `cmd/vern/cmd/root.go` (`var Version = "X.Y.Z"`)
-2. Bump language list version in `languages/manifest.json`
-3. Commit: `git commit -m "Release vX.Y.Z"`
-4. Tag: `git tag vX.Y.Z`
-5. Push: `git push origin main --tags`
-6. GitHub Action automatically builds binaries for:
-   - linux/amd64, linux/arm64
-   - darwin/amd64, darwin/arm64
+1. Bump version in `cmd/vern/cmd/root.go`
+2. Bump language list version in `languages/manifest.json` (if languages changed)
+3. Commit and push to main
+4. Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
+5. GitHub Action runs tests, then builds binaries
 
 ### Installer
-The `scripts/install.sh` script:
-- Detects OS/arch
-- Downloads appropriate binary from GitHub Releases
-- Installs to `~/.local/bin/vern`
-- Downloads language list
-- Optionally adds `~/.local/bin` to PATH
-
-Run with: `curl -fsSL https://raw.githubusercontent.com/chris-roerig/vern/main/scripts/install.sh | bash`
-
-## Known Issues
-
-### Ruby Installation
-- **Problem**: Ruby compilation requires a host Ruby (`baseruby`) to build
-- **Workaround**: Install system Ruby first (`apt install ruby`), then compile
-- **Alternative**: Use pre-compiled Ruby binaries from a different source
-- **Status**: Python source compilation works; Ruby needs work
-
-### Python Shared Libraries
-- **Problem**: Pre-compiled Python from `python-build-standalone` may have library path issues
-- **Solution**: Compile from source (now implemented)
-- **Status**: Working with source compilation
-
-## Development Tips
-
-### Testing Locally
 ```bash
-# Build and install locally
-go build -o ~/.local/bin/vern cmd/vern/main.go
-
-# Test installation
-~/.local/bin/vern install go
-~/.local/bin/vern install python 3.11
-~/.local/bin/vern list
-
-# Test shims
-~/.local/bin/vern setup
-export PATH="/home/chris/.local/share/vern/shims:$PATH"
-echo "python 3.11.10" > /tmp/.vern
-cd /tmp && python3 --version
+curl -fsSL https://raw.githubusercontent.com/chris-roerig/vern/main/scripts/install.sh | bash
 ```
-
-### Debugging Extraction
-The `extractTarGz()` and `extractTarXz()` functions strip top-level directories from tarballs. If files aren't where expected, check:
-1. What the tarball structure is: `tar -tzf <file> | head`
-2. What `BinRelPath` is set to in config
-3. That the extraction is stripping prefixes correctly
-
-### PATH Issues
-If shims aren't being used:
-1. Check `echo $PATH` includes shims directory
-2. Run `hash -r` to clear shell cache
-3. Source shell config: `source ~/.zshrc` or `source ~/.bashrc`
-4. Verify with `which <lang>` - should show shims path
 
 ## Project Structure
 ```
 vern/
-├── cmd/vern/           # CLI commands
-│   ├── main.go       # Entry point
+├── cmd/vern/           # CLI entry point and commands
+│   ├── main.go
 │   └── cmd/            # Command implementations
-├── internal/          # Internal packages
-│   ├── config/       # Configuration
-│   ├── install/      # Installation logic
-│   └── version/      # Version resolution
+├── internal/           # Internal packages
+│   ├── config/         # Configuration
+│   ├── install/        # Installation logic
+│   ├── ui/             # Colored terminal output
+│   └── version/        # Version resolution
+├── tests/              # Test suite
 ├── languages/          # Versioned language lists
-│   ├── manifest.json  # Points to latest language list
-│   └── vX.X.X.yaml    # Language definitions
+│   ├── manifest.json
+│   └── v1.3.0.yaml
 ├── scripts/            # Installer script
-│   └── install.sh
+├── docs/               # GitHub Pages site
 ├── .github/workflows/  # CI/CD
+│   ├── ci.yml
 │   └── release.yml
 ├── README.md
-├── AGENTS.md          # This file
-└── ROADMAP.md         # Future plans
+└── AGENTS.md
 ```

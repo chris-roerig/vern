@@ -7,12 +7,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "0.9.0"
+var Version = "1.0.0"
 
 var rootCmd = &cobra.Command{
-	Use:   "vern",
-	Short: "Vern - Version Number Manager",
-	Long:  `Vern is a programming language version installation manager. It works like you think.`,
+	Use:                "vern",
+	Short:              "Vern - Version Number Manager",
+	Long:               `Vern is a programming language version installation manager. It works like you think.`,
+	CompletionOptions:  cobra.CompletionOptions{HiddenDefaultCmd: true},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(ui.Logo)
 		ui.Dim("v%s", Version)
