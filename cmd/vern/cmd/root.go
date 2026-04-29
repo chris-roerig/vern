@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "0.4.0"
+var Version = "0.5.0"
 
 var rootCmd = &cobra.Command{
 	Use:   "vern",
@@ -30,4 +30,5 @@ func init() {
 	rootCmd.AddCommand(helpCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(implodeCmd)
 }
