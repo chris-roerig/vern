@@ -315,40 +315,46 @@ func CreateShims() error {
 	for _, lang := range cfg.Languages {
 		shimPath := filepath.Join(shimsDir, lang.BinaryName)
 		script := fmt.Sprintf(`#!/bin/sh
-VERN_SHIMS="%s"
 VERN_DATA="%s"
+LANG="%s"
+BIN="%s"
 
-vern_resolve() {
-    # Check for .vern file
-    dir="$PWD"
-    while [ "$dir" != "/" ]; do
-        if [ -f "$dir/.vern" ]; then
-            cat "$dir/.vern"
-            return
+# Check for .vern file
+dir="$PWD"
+while [ "$dir" != "/" ]; do
+    if [ -f "$dir/.vern" ]; then
+        vern_file=$(cat "$dir/.vern")
+        if echo "$vern_file" | grep -q "^$LANG "; then
+            version=$(echo "$vern_file" | cut -d' ' -f2)
+            exec "$VERN_DATA/installs/$LANG/$version/$BIN" "$@"
         fi
-        dir=$(dirname "$dir")
-    done
-
-    # Check defaults
-    if [ -f "$VERN_DATA/defaults.yaml" ]; then
-        grep "^%s:" "$VERN_DATA/defaults.yaml" | cut -d: -f2 | tr -d ' '
     fi
-}
+    dir=$(dirname "$dir")
+done
 
-lang_ver=$(vern_resolve)
-if [ -z "$lang_ver" ]; then
-    echo "No version set for %s"
-    exit 1
+# Check defaults
+if [ -f "$VERN_DATA/defaults.yaml" ]; then
+    version=$(grep "^$LANG:" "$VERN_DATA/defaults.yaml" | cut -d: -f2 | tr -d ' ')
+    if [ -n "$version" ]; then
+        exec "$VERN_DATA/installs/$LANG/$version/$BIN" "$@"
+    fi
 fi
 
-        exec "$VERN_DATA/installs/%s/$lang_ver/%s" "$@"
-`, shimsDir, config.DataDir(), lang.Name, lang.Name, lang.Name, lang.Install.BinRelPath)
+echo "No version set for $LANG"
+exit 1
+`, config.DataDir(), lang.Name, lang.Install.BinRelPath)
 
 		if err := os.WriteFile(shimPath, []byte(script), 0755); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func IsPathSet() bool {
+	path := os.Getenv("PATH")
+	shimsDir := config.ShimsDir()
+	return strings.Contains(path, shimsDir)
 }
 
 func GetShellHook() string {
