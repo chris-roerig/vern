@@ -114,6 +114,33 @@ func createDefaultConfig(path string) error {
 					BuildCommand:     `make -j$(sysctl -n hw.ncpu 2>/dev/null || nproc) && make install`,
 				},
 			},
+			{
+				Name:       "rust",
+				BinaryName: "rustc",
+				VersionSource: VersionSource{
+					URL:          "https://github.com/rust-lang/rust/tags",
+					VersionRegex: `/releases/tag/(\d+\.\d+\.\d+)`,
+				},
+				Install: Install{
+					DownloadTemplate: "https://static.rust-lang.org/dist/rust-{{.Version}}-{{.RustTarget}}.tar.xz",
+					ExtractType:      "tar.xz",
+					BinRelPath:       "bin/rustc",
+					BuildConfig:      "./install.sh --prefix={{.InstallDir}}",
+				},
+			},
+			{
+				Name:       "zig",
+				BinaryName: "zig",
+				VersionSource: VersionSource{
+					URL:          "https://ziglang.org/download/",
+					VersionRegex: `zig-linux-x86_64-(\d+\.\d+\.\d+)\.tar\.xz`,
+				},
+				Install: Install{
+					DownloadTemplate: "https://ziglang.org/download/{{.Version}}/zig-{{.OSAlt}}-{{.ArchGNU}}-{{.Version}}.tar.xz",
+					ExtractType:      "tar.xz",
+					BinRelPath:       "zig",
+				},
+			},
 		},
 	}
 	data, err := yaml.Marshal(&defaultCfg)

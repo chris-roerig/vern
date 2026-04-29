@@ -9,6 +9,7 @@ import (
 
 	"github.com/chris/vern/internal/config"
 	"github.com/chris/vern/internal/ui"
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
@@ -25,13 +26,54 @@ var implodeCmd = &cobra.Command{
 
 		configDir := config.ConfigDir()
 		dataDir := config.DataDir()
+		installsDir := config.InstallsDir()
 
-		fmt.Println("This will remove:")
-		fmt.Printf("  Binary:  %s\n", exePath)
-		fmt.Printf("  Config:  %s\n", configDir)
-		fmt.Printf("  Data:    %s\n", dataDir)
-		fmt.Print("\nAre you sure? [y/N]: ")
+		options := []string{
+			"Binary only        - just the vern binary",
+			"Config             - languages.yaml, defaults, shims",
+			"All languages      - all installed language versions",
+			"Everything         - binary, config, languages, all data",
+		}
 
+		prompt := promptui.Select{
+			Label: "What would you like to remove",
+			Items: options,
+			Size:  len(options),
+		}
+
+		idx, _, err := prompt.Run()
+		if err != nil {
+			fmt.Println("Cancelled.")
+			return
+		}
+
+		removeBin, removeConfig, removeLangs := false, false, false
+		switch idx {
+		case 0:
+			removeBin = true
+		case 1:
+			removeConfig = true
+		case 2:
+			removeLangs = true
+		case 3:
+			removeBin, removeConfig, removeLangs = true, true, true
+		}
+
+		fmt.Println("\nThis will remove:")
+		if removeBin {
+			fmt.Printf("  Binary:     %s\n", exePath)
+		}
+		if removeConfig {
+			fmt.Printf("  Config:     %s\n", configDir)
+		}
+		if removeLangs {
+			fmt.Printf("  Languages:  %s\n", installsDir)
+		}
+		if removeConfig && removeLangs {
+			fmt.Printf("  Data:       %s\n", dataDir)
+		}
+
+		fmt.Print("\nConfirm? [y/N]: ")
 		scanner := bufio.NewScanner(os.Stdin)
 		scanner.Scan()
 		if scanner.Text() != "y" && scanner.Text() != "Y" {
@@ -39,18 +81,35 @@ var implodeCmd = &cobra.Command{
 			return
 		}
 
-		os.RemoveAll(configDir)
-		os.RemoveAll(dataDir)
-
-		if err := os.Remove(exePath); err != nil {
-			ui.Error("Failed to remove binary: %v", err)
-			ui.Error("You may need to run with sudo or remove it manually.")
-			os.Exit(1)
+		if removeLangs {
+			if removeConfig {
+				os.RemoveAll(dataDir)
+				ui.Success("Removed all data: %s", dataDir)
+			} else {
+				os.RemoveAll(installsDir)
+				ui.Success("Removed all installed languages: %s", installsDir)
+			}
 		}
 
-		ui.Success("vern has been removed. Goodbye!")
+		if removeConfig && !removeLangs {
+			os.RemoveAll(configDir)
+			os.RemoveAll(config.ShimsDir())
+			os.Remove(config.DefaultsPath())
+			ui.Success("Removed config and shims")
+		} else if removeConfig {
+			os.RemoveAll(configDir)
+			ui.Success("Removed config: %s", configDir)
+		}
 
-		// Check shell configs for PATH entries that should be cleaned up
+		if removeBin {
+			if err := os.Remove(exePath); err != nil {
+				ui.Error("Failed to remove binary: %v", err)
+				ui.Error("You may need to run with sudo or remove it manually.")
+			} else {
+				ui.Success("Removed binary: %s", exePath)
+			}
+		}
+
 		binDir := filepath.Dir(exePath)
 		shimsDir := config.ShimsDir()
 		checkShellConfigs(binDir, shimsDir)

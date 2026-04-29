@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -20,6 +21,9 @@ import (
 
 var httpClient = &http.Client{Timeout: 5 * time.Minute}
 
+// Verbose controls whether build output is shown
+var Verbose bool
+
 type TemplateData struct {
 	Version    string
 	MajorMinor string
@@ -27,6 +31,9 @@ type TemplateData struct {
 	OS         string
 	Arch       string
 	ArchAlt    string
+	ArchGNU    string
+	OSAlt      string
+	RustTarget string
 }
 
 func archAlt(goarch string) string {
@@ -34,6 +41,33 @@ func archAlt(goarch string) string {
 		return "x64"
 	}
 	return goarch
+}
+
+func archGNU(goarch string) string {
+	switch goarch {
+	case "amd64":
+		return "x86_64"
+	case "arm64":
+		return "aarch64"
+	}
+	return goarch
+}
+
+func osAlt(goos string) string {
+	if goos == "darwin" {
+		return "macos"
+	}
+	return goos
+}
+
+func rustTarget(goos, goarch string) string {
+	arch := archGNU(goarch)
+	switch goos {
+	case "darwin":
+		return arch + "-apple-darwin"
+	default:
+		return arch + "-unknown-" + goos + "-gnu"
+	}
 }
 
 func DownloadAndInstall(lang *config.Language, versionStr string) error {
@@ -49,6 +83,9 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		OS:         runtime.GOOS,
 		Arch:       runtime.GOARCH,
 		ArchAlt:    archAlt(runtime.GOARCH),
+		ArchGNU:    archGNU(runtime.GOARCH),
+		OSAlt:      osAlt(runtime.GOOS),
+		RustTarget: rustTarget(runtime.GOOS, runtime.GOARCH),
 	}
 
 	url, err := renderTemplate(lang.Install.DownloadTemplate, data)
@@ -144,6 +181,9 @@ func renderTemplate(tmpl string, data TemplateData) (string, error) {
 	result = strings.ReplaceAll(result, "{{.OS}}", data.OS)
 	result = strings.ReplaceAll(result, "{{.Arch}}", data.Arch)
 	result = strings.ReplaceAll(result, "{{.ArchAlt}}", data.ArchAlt)
+	result = strings.ReplaceAll(result, "{{.ArchGNU}}", data.ArchGNU)
+	result = strings.ReplaceAll(result, "{{.OSAlt}}", data.OSAlt)
+	result = strings.ReplaceAll(result, "{{.RustTarget}}", data.RustTarget)
 	return result, nil
 }
 
@@ -163,7 +203,15 @@ func downloadFile(url string) (string, error) {
 		return "", err
 	}
 
-	_, err = io.Copy(tmpFile, io.LimitReader(resp.Body, 500*1024*1024)) // 500MB max
+	reader := io.LimitReader(resp.Body, 500*1024*1024)
+	if resp.ContentLength > 0 {
+		reader = &progressReader{reader: reader, total: resp.ContentLength}
+	}
+
+	_, err = io.Copy(tmpFile, reader)
+	if resp.ContentLength > 0 {
+		fmt.Print("\n") // newline after progress
+	}
 	if err != nil {
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
@@ -305,6 +353,16 @@ func GetInstalledVersions(langName string) ([]string, error) {
 			versions = append(versions, entry.Name())
 		}
 	}
+
+	sort.Slice(versions, func(i, j int) bool {
+		vi, ei := version.ParseVersion(versions[i])
+		vj, ej := version.ParseVersion(versions[j])
+		if ei != nil || ej != nil {
+			return versions[i] < versions[j]
+		}
+		return vi.Compare(vj) < 0
+	})
+
 	return versions, nil
 }
 
@@ -446,9 +504,27 @@ func renderTemplateForBuild(templateStr string, data TemplateData) string {
 func runCommand(dir, cmdStr string) error {
 	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if Verbose {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	return cmd.Run()
+}
+
+type progressReader struct {
+	reader  io.Reader
+	total   int64
+	current int64
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	pr.current += int64(n)
+	pct := float64(pr.current) / float64(pr.total) * 100
+	mb := float64(pr.current) / 1024 / 1024
+	totalMB := float64(pr.total) / 1024 / 1024
+	fmt.Fprintf(os.Stdout, "\r  %.1f/%.1f MB (%.0f%%)", mb, totalMB, pct)
+	return n, err
 }
 
 func moveDirContents(src, dst string) error {

@@ -24,6 +24,9 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 			versionArg = args[1]
 		}
 
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		install.Verbose = verbose
+
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			ui.Error("Error loading config: %v", err)
@@ -74,4 +77,8 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 			ui.Warn("Warning: failed to update shims: %v", err)
 		}
 	},
+}
+
+func init() {
+	installCmd.Flags().BoolP("verbose", "v", false, "Show build output")
 }
