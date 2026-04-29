@@ -68,5 +68,9 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 			config.SaveDefaults(defaults)
 			fmt.Printf("Set %s %s as default\n", lang.Name, resolvedVersion)
 		}
+
+		if err := install.CreateShims(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to update shims: %v\n", err)
+		}
 	},
 }

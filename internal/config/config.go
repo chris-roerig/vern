@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/adrg/xdg"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,10 +34,7 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	configPath, err := xdg.ConfigFile("vern/languages.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get config path: %w", err)
-	}
+	configPath := filepath.Join(ConfigDir(), "languages.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		if err := createDefaultConfig(configPath); err != nil {
 			return nil, fmt.Errorf("failed to create default config: %w", err)
@@ -144,14 +140,17 @@ func SaveLangsVersion(version string) error {
 	return os.WriteFile(LangsVersionPath(), []byte(version), 0644)
 }
 
+func homeDir() string {
+	home, _ := os.UserHomeDir()
+	return home
+}
+
 func ConfigDir() string {
-	path, _ := xdg.ConfigFile("vern")
-	return path
+	return filepath.Join(homeDir(), ".config", "vern")
 }
 
 func DataDir() string {
-	path, _ := xdg.DataFile("vern")
-	return path
+	return filepath.Join(homeDir(), ".local", "share", "vern")
 }
 
 func InstallsDir() string {

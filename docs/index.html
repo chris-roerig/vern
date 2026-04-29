@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vern — The version manager that just makes sense</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --code-bg: #1c2128;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      text-align: center;
+      padding: 80px 0 40px;
+    }
+
+    .logo {
+      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.3;
+      color: var(--green);
+      margin-bottom: 24px;
+      white-space: pre;
+    }
+
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    h1 span {
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .tagline {
+      font-size: 20px;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+
+    .install-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 48px;
+      text-align: center;
+    }
+
+    .install-section h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: var(--green);
+    }
+
+    .install-command {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 14px;
+      color: var(--text);
+      word-break: break-all;
+      cursor: pointer;
+      position: relative;
+      text-align: left;
+      transition: border-color 0.2s;
+    }
+
+    .install-command:hover {
+      border-color: var(--accent);
+    }
+
+    .install-command .copy-hint {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .install-note {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .feature h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .feature p {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .feature code {
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+    }
+
+    .example {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 48px;
+    }
+
+    .example h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .example pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    .example pre .prompt { color: var(--green); }
+    .example pre .comment { color: var(--muted); }
+    .example pre .output { color: var(--muted); }
+
+    .languages {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .languages h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .lang-list {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .lang-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 48px 0 24px; }
+      h1 { font-size: 36px; }
+      .tagline { font-size: 16px; }
+      .features { grid-template-columns: 1fr; }
+      .logo { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">                    ▄▄         ▄▄
+▄▄ ▄▄ ▄▄▄▄ ▄▄▄▄     █   ▄▄  ▄▄  █
+██▄██ ██▄▄  ██▄█▄  ██   ███▄██  ██
+ ▀█▀  ██▄▄▄ ██ ██   █   ██ ▀██  █
+                    ▀▀         ▀▀</div>
+      <h1>vern<span>{n}</span></h1>
+      <p class="tagline">The version manager that just makes sense.</p>
+    </header>
+
+    <div class="install-section">
+      <h2>Install vern</h2>
+      <div class="install-command" onclick="copyInstall()" id="install-cmd">
+        curl -fsSL https://raw.githubusercontent.com/chris-roerig/vern/main/scripts/install.sh | bash
+        <span class="copy-hint" id="copy-hint">click to copy</span>
+      </div>
+      <p class="install-note">Paste that in a macOS Terminal or Linux shell prompt.</p>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <h3>🎯 Smart versions</h3>
+        <p>Install the latest, or be as specific as you want. <code>vern install python 3</code> gets the latest 3.x.</p>
+      </div>
+      <div class="feature">
+        <h3>📁 Per-project versions</h3>
+        <p>Drop a <code>.vern</code> file in your project. Version switching happens automatically.</p>
+      </div>
+      <div class="feature">
+        <h3>⚡ No plugins needed</h3>
+        <p>Go, Python, Node.js, and Ruby work out of the box. Add more with a simple YAML config.</p>
+      </div>
+      <div class="feature">
+        <h3>🧹 Clean uninstall</h3>
+        <p>Run <code>vern implode</code> and it's gone. Binary, config, installed versions — everything.</p>
+      </div>
+    </div>
+
+    <div class="example">
+      <h2>How it works</h2>
+      <pre><span class="prompt">$</span> vern install go
+<span class="output">Installing go 1.24.2...
+Downloading go 1.24.2...
+Successfully installed go 1.24.2
+Set go 1.24.2 as default</span>
+
+<span class="prompt">$</span> vern install python 3.12
+<span class="output">Installing python 3.12.8...
+Building python 3.12.8 from source...
+Successfully installed python 3.12.8</span>
+
+<span class="prompt">$</span> vern list
+<span class="output">go (1 version):
+  1.24.2 * (default)
+python (1 version):
+  3.12.8 * (default)</span>
+
+<span class="prompt">$</span> echo "python 3.12.8" > .vern  <span class="comment"># pin version per project</span></pre>
+    </div>
+
+    <div class="languages">
+      <h2>Supported Languages</h2>
+      <div class="lang-list">
+        <div class="lang-item">Go</div>
+        <div class="lang-item">Python</div>
+        <div class="lang-item">Node.js</div>
+        <div class="lang-item">Ruby</div>
+      </div>
+    </div>
+
+    <footer>
+      <p>
+        <a href="https://github.com/chris-roerig/vern">GitHub</a> ·
+        <a href="https://github.com/chris-roerig/vern/issues">Issues</a> ·
+        <a href="https://github.com/chris-roerig/vern/blob/main/README.md">Documentation</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    function copyInstall() {
+      const text = 'curl -fsSL https://raw.githubusercontent.com/chris-roerig/vern/main/scripts/install.sh | bash';
+      navigator.clipboard.writeText(text).then(() => {
+        const hint = document.getElementById('copy-hint');
+        hint.textContent = 'copied!';
+        setTimeout(() => { hint.textContent = 'click to copy'; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
