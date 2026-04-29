@@ -19,25 +19,15 @@ detect_platform() {
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     ARCH=$(uname -m)
 
-    if [ "$OS" = "darwin" ]; then
-        if [ "$ARCH" = "x86_64" ]; then
-            ARCH="amd64"
-        elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
-            ARCH="arm64"
-        fi
-    elif [ "$OS" = "linux" ]; then
-        if [ "$ARCH" = "x86_64" ]; then
-            ARCH="x86_64"
-        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-            ARCH="aarch64"
-        fi
-    else
-        error "Unsupported OS: $OS"
-        exit 1
+    if [ "$ARCH" = "x86_64" ]; then
+        ARCH="amd64"
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        ARCH="arm64"
     fi
 
-    if [ "$OS" = "darwin" ]; then
-        OS="darwin"
+    if [ "$OS" != "linux" ] && [ "$OS" != "darwin" ]; then
+        error "Unsupported OS: $OS"
+        exit 1
     fi
 }
 
@@ -83,7 +73,7 @@ setup_dirs() {
 
 download_languages() {
     info "Downloading language list..."
-    LANGS_URL="https://raw.githubusercontent.com/$VERN_REPO/main/languages/latest.yaml"
+    LANGS_URL="https://raw.githubusercontent.com/$VERN_REPO/main/languages/v1.0.0.yaml"
     if curl -fsSL "$LANGS_URL" -o "$CONFIG_DIR/languages.yaml"; then
         info "Language list installed to $CONFIG_DIR/languages.yaml"
     else
