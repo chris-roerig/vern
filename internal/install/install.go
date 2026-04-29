@@ -132,6 +132,9 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		configCmd := renderTemplateForBuild(lang.Install.BuildConfig, data)
 		if Verbose { ui.Dim("Running: %s", configCmd) }
 		if err := runCommand(sourceDir, configCmd); err != nil {
+			if !Verbose {
+				ui.Warn("Hint: run with --verbose to see build output")
+			}
 			return fmt.Errorf("build config failed: %w", err)
 		}
 
@@ -140,6 +143,9 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 			buildCmd := renderTemplateForBuild(lang.Install.BuildCommand, data)
 			if Verbose { ui.Dim("Running: %s", buildCmd) }
 			if err := runCommand(sourceDir, buildCmd); err != nil {
+				if !Verbose {
+					ui.Warn("Hint: run with --verbose to see build output")
+				}
 				return fmt.Errorf("build failed: %w", err)
 			}
 		}
