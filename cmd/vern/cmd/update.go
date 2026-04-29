@@ -62,7 +62,8 @@ func updateSelf() error {
 		return fmt.Errorf("could not determine latest version")
 	}
 
-	if latestVersion == "v"+Version {
+	// Compare versions (latestVersion has "v" prefix, Version doesn't)
+	if latestVersion == "v"+Version || latestVersion == Version {
 		fmt.Println("Vern is already at the latest version:", Version)
 		return nil
 	}
@@ -71,16 +72,12 @@ func updateSelf() error {
 
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-	if goarch == "amd64" {
-		goarch = "x86_64"
-	} else if goarch == "arm64" {
-		goarch = "aarch64"
-	}
-
+	// Use architecture names that match release assets
+	// Release assets use: vern-v0.1.0-linux-amd64, vern-v0.1.0-darwin-arm64, etc.
+	// Go's GOARCH: amd64→amd64, arm64→arm64 (these match)
+	// Go's GOOS: linux→linux, darwin→darwin (these match)
+	
 	assetName := fmt.Sprintf("vern-%s-%s-%s", latestVersion, goos, goarch)
-	if goos == "darwin" {
-		assetName = fmt.Sprintf("vern-%s-%s-%s", latestVersion, goos, runtime.GOARCH)
-	}
 	downloadURL := fmt.Sprintf("https://github.com/chris-roerig/vern/releases/download/%s/%s", latestVersion, assetName)
 
 	exePath, err := os.Executable()
