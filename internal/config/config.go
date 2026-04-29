@@ -68,7 +68,7 @@ func createDefaultConfig(path string) error {
 				Install: Install{
 					DownloadTemplate: "https://go.dev/dl/go{{.Version}}.{{.OS}}-{{.Arch}}.tar.gz",
 					ExtractType:      "tar.gz",
-					BinRelPath:       "go/bin/go",
+					BinRelPath:       "bin/go",
 				},
 			},
 			{

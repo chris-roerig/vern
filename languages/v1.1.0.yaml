@@ -7,7 +7,7 @@ languages:
     install:
       download_template: "https://go.dev/dl/go{{.Version}}.{{.OS}}-{{.Arch}}.tar.gz"
       extract_type: "tar.gz"
-      bin_rel_path: "go/bin/go"
+      bin_rel_path: "bin/go"
 
   - name: python
     binary_name: python3
