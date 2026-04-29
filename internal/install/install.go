@@ -36,14 +36,14 @@ type TemplateData struct {
 	RustTarget string
 }
 
-func archAlt(goarch string) string {
+func ArchAlt(goarch string) string {
 	if goarch == "amd64" {
 		return "x64"
 	}
 	return goarch
 }
 
-func archGNU(goarch string) string {
+func ArchGNU(goarch string) string {
 	switch goarch {
 	case "amd64":
 		return "x86_64"
@@ -53,15 +53,15 @@ func archGNU(goarch string) string {
 	return goarch
 }
 
-func osAlt(goos string) string {
+func OsAlt(goos string) string {
 	if goos == "darwin" {
 		return "macos"
 	}
 	return goos
 }
 
-func rustTarget(goos, goarch string) string {
-	arch := archGNU(goarch)
+func RustTarget(goos, goarch string) string {
+	arch := ArchGNU(goarch)
 	switch goos {
 	case "darwin":
 		return arch + "-apple-darwin"
@@ -82,10 +82,10 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 		InstallDir: installDir,
 		OS:         runtime.GOOS,
 		Arch:       runtime.GOARCH,
-		ArchAlt:    archAlt(runtime.GOARCH),
-		ArchGNU:    archGNU(runtime.GOARCH),
-		OSAlt:      osAlt(runtime.GOOS),
-		RustTarget: rustTarget(runtime.GOOS, runtime.GOARCH),
+		ArchAlt:    ArchAlt(runtime.GOARCH),
+		ArchGNU:    ArchGNU(runtime.GOARCH),
+		OSAlt:      OsAlt(runtime.GOOS),
+		RustTarget: RustTarget(runtime.GOOS, runtime.GOARCH),
 	}
 
 	url, err := renderTemplate(lang.Install.DownloadTemplate, data)
