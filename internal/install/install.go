@@ -456,8 +456,62 @@ func CreateShims() error {
 	}
 
 	for _, lang := range cfg.Languages {
-		shimPath := filepath.Join(shimsDir, lang.BinaryName)
-		script := fmt.Sprintf(`#!/bin/sh
+		// Find the bin directory from bin_rel_path
+		binDir := filepath.Dir(lang.Install.BinRelPath)
+		if binDir == "." {
+			binDir = ""
+		}
+
+		// Scan an installed version to discover all binaries
+		versions, _ := GetInstalledVersions(lang.Name)
+		if len(versions) == 0 {
+			// No versions installed, create shim for primary binary only
+			createShim(shimsDir, lang.Name, lang.Install.BinRelPath)
+			continue
+		}
+
+		// Use the latest installed version to discover binaries
+		latestVersion := versions[len(versions)-1]
+		installDir := config.LanguageInstallDir(lang.Name, latestVersion)
+
+		var scanDir string
+		if binDir == "" {
+			scanDir = installDir
+		} else {
+			scanDir = filepath.Join(installDir, binDir)
+		}
+
+		entries, err := os.ReadDir(scanDir)
+		if err != nil {
+			// Fallback to primary binary only
+			createShim(shimsDir, lang.Name, lang.Install.BinRelPath)
+			continue
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			info, err := entry.Info()
+			if err != nil || info.Mode()&0111 == 0 {
+				continue // skip non-executable files
+			}
+			var relPath string
+			if binDir == "" {
+				relPath = entry.Name()
+			} else {
+				relPath = filepath.Join(binDir, entry.Name())
+			}
+			createShim(shimsDir, lang.Name, relPath)
+		}
+	}
+	return nil
+}
+
+func createShim(shimsDir, langName, binRelPath string) {
+	binName := filepath.Base(binRelPath)
+	shimPath := filepath.Join(shimsDir, binName)
+	script := fmt.Sprintf(`#!/bin/sh
 VERN_DATA="%s"
 LANG="%s"
 BIN="%s"
@@ -485,13 +539,9 @@ fi
 
 echo "No version set for $LANG"
 exit 1
-`, config.DataDir(), lang.Name, lang.Install.BinRelPath)
+`, config.DataDir(), langName, binRelPath)
 
-		if err := os.WriteFile(shimPath, []byte(script), 0755); err != nil {
-			return err
-		}
-	}
-	return nil
+	os.WriteFile(shimPath, []byte(script), 0755)
 }
 
 func IsPathSet() bool {
