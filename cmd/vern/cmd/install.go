@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/chris-roerig/vern/internal/config"
 	"github.com/chris-roerig/vern/internal/install"
@@ -61,6 +65,36 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 
 		ui.Info("Installing %s %s...", lang.Name, resolvedVersion)
 
+		// Ruby 4.x requires Ruby 3.1+ to bootstrap the build
+		if lang.Name == "ruby" {
+			vi, _ := version.ParseVersion(resolvedVersion)
+			if vi.Major >= 4 && !hasRuby31() {
+				ui.Warn("Ruby %s requires Ruby 3.1+ to build.", resolvedVersion)
+				fmt.Print("Install Ruby 3.4 now? [y/N]: ")
+				scanner := bufio.NewScanner(os.Stdin)
+				scanner.Scan()
+				if strings.ToLower(scanner.Text()) == "y" {
+					bootstrapVer, err := version.ResolveVersion(lang, "3.4")
+					if err != nil {
+						ui.Error("Failed to resolve Ruby 3.4: %v", err)
+						os.Exit(1)
+					}
+					ui.Info("Installing Ruby %s first...", bootstrapVer)
+					if err := install.DownloadAndInstall(lang, bootstrapVer, opts); err != nil {
+						ui.Error("Failed to install Ruby %s: %v", bootstrapVer, err)
+						os.Exit(1)
+					}
+					ui.Success("Ruby %s installed.", bootstrapVer)
+					// Update PATH so the build can find it
+					binDir := filepath.Dir(filepath.Join(config.LanguageInstallDir(lang.Name, bootstrapVer), lang.Install.BinRelPath))
+					os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+				} else {
+					ui.Error("Ruby 4.x cannot be built without Ruby 3.1+")
+					os.Exit(1)
+				}
+			}
+		}
+
 		if err := install.DownloadAndInstall(lang, resolvedVersion, opts); err != nil {
 			ui.Error("Error: %v", err)
 			os.Exit(1)
@@ -83,4 +117,28 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 
 func init() {
 	installCmd.Flags().BoolP("verbose", "v", false, "Show build output")
+}
+
+// hasRuby31 checks if Ruby 3.1+ is available on PATH or installed via vern.
+func hasRuby31() bool {
+	// Check system ruby
+	out, err := exec.Command("ruby", "-e", "puts RUBY_VERSION").Output()
+	if err == nil {
+		ver := strings.TrimSpace(string(out))
+		if vi, err := version.ParseVersion(ver); err == nil {
+			if vi.Major > 3 || (vi.Major == 3 && vi.Minor >= 1) {
+				return true
+			}
+		}
+	}
+	// Check vern-installed ruby
+	versions, _ := install.GetInstalledVersions("ruby")
+	for _, v := range versions {
+		if vi, err := version.ParseVersion(v); err == nil {
+			if vi.Major > 3 || (vi.Major == 3 && vi.Minor >= 1) {
+				return true
+			}
+		}
+	}
+	return false
 }
