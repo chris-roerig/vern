@@ -4,10 +4,29 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+var (
+	validVersion  = regexp.MustCompile(`^\d+(\.\d+){0,2}$`)
+	validLangName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+	validBinPath  = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
+)
+
+func IsValidVersion(v string) bool {
+	return validVersion.MatchString(v)
+}
+
+func IsValidLangName(n string) bool {
+	return validLangName.MatchString(n)
+}
+
+func IsValidBinPath(p string) bool {
+	return validBinPath.MatchString(p) && !strings.Contains(p, "..")
+}
 
 type Language struct {
 	Name          string        `yaml:"name"`
@@ -256,5 +275,12 @@ func ParseVernFile(path string) (string, string, error) {
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid .vern format, expected 'language version'")
 	}
-	return parts[0], parts[1], nil
+	lang, ver := parts[0], strings.TrimSpace(parts[1])
+	if !IsValidLangName(lang) {
+		return "", "", fmt.Errorf("invalid language name in .vern: %q", lang)
+	}
+	if !IsValidVersion(ver) {
+		return "", "", fmt.Errorf("invalid version in .vern: %q", ver)
+	}
+	return lang, ver, nil
 }

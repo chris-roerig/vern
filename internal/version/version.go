@@ -68,17 +68,21 @@ func FetchAvailableVersions(lang *config.Language) ([]VersionInfo, error) {
 		return nil, fmt.Errorf("HTTP %d fetching versions", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB max
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024)) // 2MB max
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate regex isn't excessively complex
+	if len(lang.VersionSource.VersionRegex) > 200 {
+		return nil, fmt.Errorf("version regex too long")
+	}
 	re, err := regexp.Compile(lang.VersionSource.VersionRegex)
 	if err != nil {
 		return nil, fmt.Errorf("invalid version regex: %w", err)
 	}
 
-	matches := re.FindAllStringSubmatch(string(body), -1)
+	matches := re.FindAllStringSubmatch(string(body), 500) // cap matches
 	seen := make(map[string]bool)
 	var versions []VersionInfo
 

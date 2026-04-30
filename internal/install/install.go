@@ -318,6 +318,8 @@ func extractTar(tr *tar.Reader, destDir string) error {
 		}
 
 		switch hdr.Typeflag {
+		case tar.TypeSymlink, tar.TypeLink:
+			return fmt.Errorf("tar contains symlink entry (rejected for security): %s", hdr.Name)
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0755); err != nil {
 				return err
@@ -335,7 +337,7 @@ func extractTar(tr *tar.Reader, destDir string) error {
 				return err
 			}
 			wf.Close()
-			os.Chmod(target, os.FileMode(hdr.Mode))
+			os.Chmod(target, os.FileMode(hdr.Mode)&0755) // strip setuid/setgid
 		}
 	}
 
@@ -509,6 +511,10 @@ func CreateShims() error {
 }
 
 func createShim(shimsDir, langName, binRelPath string) {
+	// Validate inputs before embedding in shell script
+	if !config.IsValidLangName(langName) || !config.IsValidBinPath(binRelPath) {
+		return
+	}
 	binName := filepath.Base(binRelPath)
 	shimPath := filepath.Join(shimsDir, binName)
 	script := fmt.Sprintf(`#!/bin/sh
@@ -523,6 +529,11 @@ while [ "$dir" != "/" ]; do
         vern_file=$(cat "$dir/.vern")
         if echo "$vern_file" | grep -q "^$LANG "; then
             version=$(echo "$vern_file" | cut -d' ' -f2)
+            # Validate version string to prevent path traversal
+            if ! echo "$version" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
+                echo "Invalid version in .vern: $version"
+                exit 1
+            fi
             exec "$VERN_DATA/installs/$LANG/$version/$BIN" "$@"
         fi
     fi

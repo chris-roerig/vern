@@ -44,24 +44,45 @@ get_latest_version() {
 download_vern() {
     BINARY_NAME="vern-$LATEST-$OS-$ARCH"
     DOWNLOAD_URL="https://github.com/$VERN_REPO/releases/download/$LATEST/$BINARY_NAME"
+    CHECKSUM_URL="${DOWNLOAD_URL}.sha256"
+    TMPFILE=$(mktemp "${TMPDIR:-/tmp}/vern-install-XXXXXX")
 
     info "Downloading vern $LATEST for $OS/$ARCH..."
-    if ! curl -fsSL "$DOWNLOAD_URL" -o /tmp/vern-new; then
+    if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMPFILE"; then
+        rm -f "$TMPFILE"
         error "Download failed: $DOWNLOAD_URL"
         exit 1
     fi
-    chmod +x /tmp/vern-new
+
+    info "Verifying checksum..."
+    EXPECTED=$(curl -fsSL "$CHECKSUM_URL" | awk '{print $1}')
+    if [ -z "$EXPECTED" ]; then
+        rm -f "$TMPFILE"
+        error "Failed to fetch checksum"
+        exit 1
+    fi
+    ACTUAL=$(sha256sum "$TMPFILE" 2>/dev/null || shasum -a 256 "$TMPFILE" 2>/dev/null)
+    ACTUAL=$(echo "$ACTUAL" | awk '{print $1}')
+    if [ "$EXPECTED" != "$ACTUAL" ]; then
+        rm -f "$TMPFILE"
+        error "Checksum mismatch! Expected $EXPECTED, got $ACTUAL"
+        exit 1
+    fi
+    info "Checksum verified."
+
+    chmod +x "$TMPFILE"
+    VERN_TMPFILE="$TMPFILE"
 }
 
 install_vern() {
     mkdir -p "$INSTALL_DIR"
 
     if [ -w "$INSTALL_DIR" ] || [ "$INSTALL_DIR" = "$HOME/.local/bin" ]; then
-        mv /tmp/vern-new "$INSTALL_DIR/vern"
+        mv "$VERN_TMPFILE" "$INSTALL_DIR/vern"
         info "Installed vern to $INSTALL_DIR/vern"
     else
         warn "Need sudo to install to $INSTALL_DIR"
-        sudo mv /tmp/vern-new "$INSTALL_DIR/vern"
+        sudo mv "$VERN_TMPFILE" "$INSTALL_DIR/vern"
     fi
 }
 

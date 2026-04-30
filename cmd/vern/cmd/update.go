@@ -60,7 +60,7 @@ func updateSelf() error {
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1*1024*1024)).Decode(&release); err != nil {
 		return fmt.Errorf("failed to parse release info: %w", err)
 	}
 
@@ -137,7 +137,7 @@ func updateLangs() error {
 		LatestLangsVersion string `json:"latest_langs_version"`
 		LangsURL           string `json:"langs_url"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&manifest); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1*1024*1024)).Decode(&manifest); err != nil {
 		return fmt.Errorf("failed to parse manifest: %w", err)
 	}
 
@@ -211,8 +211,7 @@ func verifyChecksum(filePath, checksumURL string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		ui.Warn("No checksum available, skipping verification")
-		return nil
+		return fmt.Errorf("checksum file not available (HTTP %d) — refusing to install unverified binary", resp.StatusCode)
 	}
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1024))
