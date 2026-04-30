@@ -42,6 +42,11 @@ languages:
       bin_rel_path: "bin/ruby"
       build_config: "./configure --prefix={{.InstallDir}} $(uname -s | grep -q Darwin && echo \"--build=$(uname -m | sed 's/arm64/aarch64/')-apple-darwin\")"
       build_command: "make -j$(sysctl -n hw.ncpu 2>/dev/null || nproc) && make install"
+    requires:
+      binary: ruby
+      min_version: "3.1.0"
+      bootstrap_version: "3.4"
+      when_major_gte: 4
 
   - name: rust
     binary_name: rustc

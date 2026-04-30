@@ -33,6 +33,7 @@ type Language struct {
 	BinaryName    string        `yaml:"binary_name"`
 	VersionSource VersionSource `yaml:"version_source"`
 	Install       Install       `yaml:"install"`
+	Requires      *Requirement  `yaml:"requires,omitempty"`
 }
 
 type VersionSource struct {
@@ -46,6 +47,14 @@ type Install struct {
 	BinRelPath       string `yaml:"bin_rel_path"`
 	BuildConfig      string `yaml:"build_config"`
 	BuildCommand     string `yaml:"build_command"`
+}
+
+// Requirement defines a build dependency that must be satisfied before installing.
+type Requirement struct {
+	Binary           string `yaml:"binary"`
+	MinVersion       string `yaml:"min_version"`
+	BootstrapVersion string `yaml:"bootstrap_version"`
+	WhenMajorGte     int    `yaml:"when_major_gte"`
 }
 
 type Config struct {
@@ -131,6 +140,12 @@ func createDefaultConfig(path string) error {
 					BinRelPath:       "bin/ruby",
 					BuildConfig:      `./configure --prefix={{.InstallDir}} $(uname -s | grep -q Darwin && echo "--build=$(uname -m | sed 's/arm64/aarch64/')-apple-darwin")`,
 					BuildCommand:     `make -j$(sysctl -n hw.ncpu 2>/dev/null || nproc) && make install`,
+				},
+				Requires: &Requirement{
+					Binary:           "ruby",
+					MinVersion:       "3.1.0",
+					BootstrapVersion: "3.4",
+					WhenMajorGte:     4,
 				},
 			},
 			{

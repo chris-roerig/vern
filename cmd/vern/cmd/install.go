@@ -65,32 +65,35 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 
 		ui.Info("Installing %s %s...", lang.Name, resolvedVersion)
 
-		// Ruby 4.x requires Ruby 3.1+ to bootstrap the build
-		if lang.Name == "ruby" {
+		// Check build dependencies from language config
+		if lang.Requires != nil {
 			vi, _ := version.ParseVersion(resolvedVersion)
-			if vi.Major >= 4 && !hasRuby31() {
-				ui.Warn("Ruby %s requires Ruby 3.1+ to build.", resolvedVersion)
-				fmt.Print("Install Ruby 3.4 now? [y/N]: ")
-				scanner := bufio.NewScanner(os.Stdin)
-				scanner.Scan()
-				if strings.ToLower(scanner.Text()) == "y" {
-					bootstrapVer, err := version.ResolveVersion(lang, "3.4")
-					if err != nil {
-						ui.Error("Failed to resolve Ruby 3.4: %v", err)
+			if lang.Requires.WhenMajorGte == 0 || vi.Major >= lang.Requires.WhenMajorGte {
+				if !hasDependency(lang.Requires) {
+					ui.Warn("%s %s requires %s %s+ to build.",
+						lang.Name, resolvedVersion, lang.Requires.Binary, lang.Requires.MinVersion)
+					fmt.Printf("Install %s %s now? [y/N]: ", lang.Name, lang.Requires.BootstrapVersion)
+					scanner := bufio.NewScanner(os.Stdin)
+					scanner.Scan()
+					if strings.ToLower(scanner.Text()) == "y" {
+						bootstrapVer, err := version.ResolveVersion(lang, lang.Requires.BootstrapVersion)
+						if err != nil {
+							ui.Error("Failed to resolve %s %s: %v", lang.Name, lang.Requires.BootstrapVersion, err)
+							os.Exit(1)
+						}
+						ui.Info("Installing %s %s first...", lang.Name, bootstrapVer)
+						if err := install.DownloadAndInstall(lang, bootstrapVer, opts); err != nil {
+							ui.Error("Failed to install %s %s: %v", lang.Name, bootstrapVer, err)
+							os.Exit(1)
+						}
+						ui.Success("%s %s installed.", lang.Name, bootstrapVer)
+						binDir := filepath.Dir(filepath.Join(config.LanguageInstallDir(lang.Name, bootstrapVer), lang.Install.BinRelPath))
+						os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+					} else {
+						ui.Error("%s %s cannot be built without %s %s+",
+							lang.Name, resolvedVersion, lang.Requires.Binary, lang.Requires.MinVersion)
 						os.Exit(1)
 					}
-					ui.Info("Installing Ruby %s first...", bootstrapVer)
-					if err := install.DownloadAndInstall(lang, bootstrapVer, opts); err != nil {
-						ui.Error("Failed to install Ruby %s: %v", bootstrapVer, err)
-						os.Exit(1)
-					}
-					ui.Success("Ruby %s installed.", bootstrapVer)
-					// Update PATH so the build can find it
-					binDir := filepath.Dir(filepath.Join(config.LanguageInstallDir(lang.Name, bootstrapVer), lang.Install.BinRelPath))
-					os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
-				} else {
-					ui.Error("Ruby 4.x cannot be built without Ruby 3.1+")
-					os.Exit(1)
 				}
 			}
 		}
@@ -119,26 +122,54 @@ func init() {
 	installCmd.Flags().BoolP("verbose", "v", false, "Show build output")
 }
 
-// hasRuby31 checks if Ruby 3.1+ is available on PATH or installed via vern.
-func hasRuby31() bool {
-	// Check system ruby
-	out, err := exec.Command("ruby", "-e", "puts RUBY_VERSION").Output()
+// hasDependency checks if a build requirement is satisfied by system or vern-installed binaries.
+func hasDependency(req *config.Requirement) bool {
+	// Check system binary
+	out, err := exec.Command(req.Binary, "--version").Output()
 	if err == nil {
-		ver := strings.TrimSpace(string(out))
-		if vi, err := version.ParseVersion(ver); err == nil {
-			if vi.Major > 3 || (vi.Major == 3 && vi.Minor >= 1) {
+		if ver := extractVersion(string(out)); ver != "" {
+			if meetsMinVersion(ver, req.MinVersion) {
 				return true
 			}
 		}
 	}
-	// Check vern-installed ruby
-	versions, _ := install.GetInstalledVersions("ruby")
+	// Also try ruby-style version output
+	out, err = exec.Command(req.Binary, "-e", "puts RUBY_VERSION").Output()
+	if err == nil {
+		ver := strings.TrimSpace(string(out))
+		if meetsMinVersion(ver, req.MinVersion) {
+			return true
+		}
+	}
+	// Check vern-installed versions
+	versions, _ := install.GetInstalledVersions(req.Binary)
 	for _, v := range versions {
-		if vi, err := version.ParseVersion(v); err == nil {
-			if vi.Major > 3 || (vi.Major == 3 && vi.Minor >= 1) {
-				return true
-			}
+		if meetsMinVersion(v, req.MinVersion) {
+			return true
 		}
 	}
 	return false
+}
+
+func meetsMinVersion(ver, minVer string) bool {
+	v, err := version.ParseVersion(ver)
+	if err != nil {
+		return false
+	}
+	min, err := version.ParseVersion(minVer)
+	if err != nil {
+		return false
+	}
+	return v.Compare(min) >= 0
+}
+
+func extractVersion(s string) string {
+	// Find first M.m.p pattern in output
+	for _, word := range strings.Fields(s) {
+		word = strings.TrimRight(word, ",;)")
+		if config.IsValidVersion(word) && strings.Count(word, ".") == 2 {
+			return word
+		}
+	}
+	return ""
 }
