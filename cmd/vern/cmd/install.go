@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/chris/vern/internal/config"
-	"github.com/chris/vern/internal/install"
-	"github.com/chris/vern/internal/ui"
-	"github.com/chris/vern/internal/version"
+	"github.com/chris-roerig/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/install"
+	"github.com/chris-roerig/vern/internal/ui"
+	"github.com/chris-roerig/vern/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +25,7 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 		}
 
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		install.Verbose = verbose
+		opts := install.Options{Verbose: verbose}
 
 		cfg, err := config.LoadConfig()
 		if err != nil {
@@ -61,7 +61,7 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 
 		ui.Info("Installing %s %s...", lang.Name, resolvedVersion)
 
-		if err := install.DownloadAndInstall(lang, resolvedVersion); err != nil {
+		if err := install.DownloadAndInstall(lang, resolvedVersion, opts); err != nil {
 			ui.Error("Error: %v", err)
 			os.Exit(1)
 		}
@@ -69,12 +69,14 @@ Partial versions (e.g., "3" or "3.11") will install the latest matching version.
 		defaults, _ := config.LoadDefaults()
 		if defaults[lang.Name] == "" {
 			defaults[lang.Name] = resolvedVersion
-			config.SaveDefaults(defaults)
+			if err := config.SaveDefaults(defaults); err != nil {
+				ui.Warn("Failed to save defaults: %v", err)
+			}
 			ui.Success("Set %s %s as default", lang.Name, resolvedVersion)
 		}
 
 		if err := install.CreateShims(); err != nil {
-			ui.Warn("Warning: failed to update shims: %v", err)
+			ui.Warn("Failed to update shims: %v", err)
 		}
 	},
 }

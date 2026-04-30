@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/chris/vern/internal/version"
+	"github.com/chris-roerig/vern/internal/version"
 )
 
 func TestParseVersion(t *testing.T) {

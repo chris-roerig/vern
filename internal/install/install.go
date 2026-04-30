@@ -1,29 +1,21 @@
 package install
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
-	"time"
+	"text/template"
 
-	"github.com/chris/vern/internal/config"
-	"github.com/chris/vern/internal/ui"
-	"github.com/chris/vern/internal/version"
+	"github.com/chris-roerig/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/ui"
+	"github.com/chris-roerig/vern/internal/version"
 )
 
-var httpClient = &http.Client{Timeout: 5 * time.Minute}
-
-// Verbose controls whether build output is shown
-var Verbose bool
-
+// TemplateData holds variables available in download URL and build command templates.
 type TemplateData struct {
 	Version    string
 	MajorMinor string
@@ -36,41 +28,8 @@ type TemplateData struct {
 	RustTarget string
 }
 
-func ArchAlt(goarch string) string {
-	if goarch == "amd64" {
-		return "x64"
-	}
-	return goarch
-}
-
-func ArchGNU(goarch string) string {
-	switch goarch {
-	case "amd64":
-		return "x86_64"
-	case "arm64":
-		return "aarch64"
-	}
-	return goarch
-}
-
-func OsAlt(goos string) string {
-	if goos == "darwin" {
-		return "macos"
-	}
-	return goos
-}
-
-func RustTarget(goos, goarch string) string {
-	arch := ArchGNU(goarch)
-	switch goos {
-	case "darwin":
-		return arch + "-apple-darwin"
-	default:
-		return arch + "-unknown-" + goos + "-gnu"
-	}
-}
-
-func DownloadAndInstall(lang *config.Language, versionStr string) error {
+// DownloadAndInstall downloads, extracts, and optionally builds a language version.
+func DownloadAndInstall(lang *config.Language, versionStr string, opts Options) error {
 	installDir := config.LanguageInstallDir(lang.Name, versionStr)
 	if _, err := os.Stat(installDir); err == nil {
 		return fmt.Errorf("version %s is already installed for %s", versionStr, lang.Name)
@@ -95,13 +54,12 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 
 	ui.Info("Downloading %s %s from %s...", lang.Name, versionStr, url)
 
-	tmpFile, err := downloadFile(url)
+	tmpFile, err := DownloadFile(url)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	defer os.Remove(tmpFile)
 
-	// Create a temp directory for extraction and possible build
 	buildDir, err := os.MkdirTemp("", "vern-build-*")
 	if err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
@@ -110,53 +68,20 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 
 	ui.Info("Extracting %s %s...", lang.Name, versionStr)
 
-	if err := extractArchive(tmpFile, buildDir, lang.Install.ExtractType); err != nil {
+	if err := ExtractArchive(tmpFile, buildDir, lang.Install.ExtractType); err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
 
-	// If build config is specified, compile from source
 	if lang.Install.BuildConfig != "" {
-		ui.Info("Building %s %s from source...", lang.Name, versionStr)
-		
-		// Find the extracted source directory
-		sourceDir := buildDir
-		entries, err := os.ReadDir(buildDir)
-		if err != nil {
-			return fmt.Errorf("failed to read build directory: %w", err)
-		}
-		if len(entries) == 1 && entries[0].IsDir() {
-			sourceDir = filepath.Join(buildDir, entries[0].Name())
-		}
-
-		// Run build config
-		configCmd := renderTemplateForBuild(lang.Install.BuildConfig, data)
-		if Verbose { ui.Dim("Running: %s", configCmd) }
-		if err := runCommand(sourceDir, configCmd); err != nil {
-			if !Verbose {
-				ui.Warn("Hint: run with --verbose to see build output")
-			}
-			return fmt.Errorf("build config failed: %w", err)
-		}
-
-		// Run build command
-		if lang.Install.BuildCommand != "" {
-			buildCmd := renderTemplateForBuild(lang.Install.BuildCommand, data)
-			if Verbose { ui.Dim("Running: %s", buildCmd) }
-			if err := runCommand(sourceDir, buildCmd); err != nil {
-				if !Verbose {
-					ui.Warn("Hint: run with --verbose to see build output")
-				}
-				return fmt.Errorf("build failed: %w", err)
-			}
+		if err := buildFromSource(lang, data, buildDir, opts); err != nil {
+			return err
 		}
 	}
 
-	// Create install directory
 	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return fmt.Errorf("failed to create install directory: %w", err)
 	}
 
-	// Move built files to install directory
 	if err := moveDirContents(buildDir, installDir); err != nil {
 		os.RemoveAll(installDir)
 		return fmt.Errorf("failed to move files to install directory: %w", err)
@@ -172,6 +97,44 @@ func DownloadAndInstall(lang *config.Language, versionStr string) error {
 	return nil
 }
 
+func buildFromSource(lang *config.Language, data TemplateData, buildDir string, opts Options) error {
+	ui.Info("Building %s %s from source...", lang.Name, data.Version)
+
+	sourceDir := buildDir
+	entries, err := os.ReadDir(buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to read build directory: %w", err)
+	}
+	if len(entries) == 1 && entries[0].IsDir() {
+		sourceDir = filepath.Join(buildDir, entries[0].Name())
+	}
+
+	configCmd := renderBuildTemplate(lang.Install.BuildConfig, data)
+	if opts.Verbose {
+		ui.Dim("Running: %s", configCmd)
+	}
+	if err := runCommand(sourceDir, configCmd, opts); err != nil {
+		if !opts.Verbose {
+			ui.Warn("Hint: run with --verbose to see build output")
+		}
+		return fmt.Errorf("build config failed: %w", err)
+	}
+
+	if lang.Install.BuildCommand != "" {
+		buildCmd := renderBuildTemplate(lang.Install.BuildCommand, data)
+		if opts.Verbose {
+			ui.Dim("Running: %s", buildCmd)
+		}
+		if err := runCommand(sourceDir, buildCmd, opts); err != nil {
+			if !opts.Verbose {
+				ui.Warn("Hint: run with --verbose to see build output")
+			}
+			return fmt.Errorf("build failed: %w", err)
+		}
+	}
+	return nil
+}
+
 func majorMinor(ver string) string {
 	vi, err := version.ParseVersion(ver)
 	if err != nil {
@@ -180,170 +143,32 @@ func majorMinor(ver string) string {
 	return fmt.Sprintf("%d.%d", vi.Major, vi.Minor)
 }
 
+// renderTemplate renders a Go text/template string with TemplateData.
 func renderTemplate(tmpl string, data TemplateData) (string, error) {
-	result := tmpl
-	result = strings.ReplaceAll(result, "{{.Version}}", data.Version)
-	result = strings.ReplaceAll(result, "{{.MajorMinor}}", data.MajorMinor)
-	result = strings.ReplaceAll(result, "{{.OS}}", data.OS)
-	result = strings.ReplaceAll(result, "{{.Arch}}", data.Arch)
-	result = strings.ReplaceAll(result, "{{.ArchAlt}}", data.ArchAlt)
-	result = strings.ReplaceAll(result, "{{.ArchGNU}}", data.ArchGNU)
-	result = strings.ReplaceAll(result, "{{.OSAlt}}", data.OSAlt)
-	result = strings.ReplaceAll(result, "{{.RustTarget}}", data.RustTarget)
-	return result, nil
-}
-
-func downloadFile(url string) (string, error) {
-	resp, err := httpClient.Get(url)
+	t, err := template.New("").Parse(tmpl)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	tmpFile, err := os.CreateTemp("", "vern-download-*")
-	if err != nil {
+	var buf strings.Builder
+	if err := t.Execute(&buf, data); err != nil {
 		return "", err
 	}
+	return buf.String(), nil
+}
 
-	reader := io.LimitReader(resp.Body, 500*1024*1024)
-	if resp.ContentLength > 0 {
-		reader = &progressReader{reader: reader, total: resp.ContentLength}
-	}
-
-	_, err = io.Copy(tmpFile, reader)
-	if resp.ContentLength > 0 {
-		fmt.Print("\n") // newline after progress
-	}
+// renderBuildTemplate renders build commands, which use the same template syntax.
+func renderBuildTemplate(tmpl string, data TemplateData) string {
+	result, err := renderTemplate(tmpl, data)
 	if err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
-		return "", err
+		// Fallback to simple replacement for backward compatibility
+		result = strings.ReplaceAll(tmpl, "{{.InstallDir}}", data.InstallDir)
+		result = strings.ReplaceAll(result, "{{.Version}}", data.Version)
+		result = strings.ReplaceAll(result, "{{.MajorMinor}}", data.MajorMinor)
 	}
-
-	tmpFile.Close()
-	return tmpFile.Name(), nil
+	return result
 }
 
-func extractArchive(filePath, destDir, extractType string) error {
-	switch extractType {
-	case "tar.gz":
-		return extractTarGz(filePath, destDir)
-	case "tar.xz":
-		return extractTarXz(filePath, destDir)
-	default:
-		return fmt.Errorf("unsupported archive type: %s", extractType)
-	}
-}
-
-func extractTarGz(filePath, destDir string) error {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	gzr, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
-	return extractTar(tr, destDir)
-}
-
-func extractTarXz(filePath, destDir string) error {
-	cmd := exec.Command("xz", "-dc", filePath)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create xz pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start xz: %w", err)
-	}
-
-	tr := tar.NewReader(stdout)
-	tarErr := extractTar(tr, destDir)
-
-	if waitErr := cmd.Wait(); waitErr != nil {
-		if tarErr != nil {
-			return fmt.Errorf("xz failed: %w (tar error: %v)", waitErr, tarErr)
-		}
-		return fmt.Errorf("xz failed: %w", waitErr)
-	}
-	return tarErr
-}
-
-func extractTar(tr *tar.Reader, destDir string) error {
-	// Strip top-level directory if present
-	prefix := ""
-	first := true
-
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		// Detect common prefix (top-level dir)
-		if first {
-			parts := strings.SplitN(hdr.Name, "/", 2)
-			if len(parts) == 2 {
-				prefix = parts[0] + "/"
-			}
-			first = false
-		}
-
-	// Strip prefix
-		name := hdr.Name
-		if prefix != "" && strings.HasPrefix(name, prefix) {
-			name = strings.TrimPrefix(name, prefix)
-		}
-		if name == "" {
-			continue
-		}
-
-		target := filepath.Join(destDir, name)
-
-		// Path traversal protection
-		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)+string(os.PathSeparator)) {
-			return fmt.Errorf("tar entry attempts path traversal: %s", hdr.Name)
-		}
-
-		switch hdr.Typeflag {
-		case tar.TypeSymlink, tar.TypeLink:
-			return fmt.Errorf("tar contains symlink entry (rejected for security): %s", hdr.Name)
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return err
-			}
-			wf, err := os.Create(target)
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(wf, tr); err != nil {
-				wf.Close()
-				return err
-			}
-			wf.Close()
-			os.Chmod(target, os.FileMode(hdr.Mode)&0755) // strip setuid/setgid
-		}
-	}
-
-	return nil
-}
-
+// GetInstalledVersions returns installed versions for a language, sorted by semver.
 func GetInstalledVersions(langName string) ([]string, error) {
 	langDir := filepath.Join(config.InstallsDir(), langName)
 	if _, err := os.Stat(langDir); os.IsNotExist(err) {
@@ -374,6 +199,7 @@ func GetInstalledVersions(langName string) ([]string, error) {
 	return versions, nil
 }
 
+// GetInstalledLanguages returns a map of language name to installed versions.
 func GetInstalledLanguages() (map[string][]string, error) {
 	result := make(map[string][]string)
 	installsDir := config.InstallsDir()
@@ -388,7 +214,10 @@ func GetInstalledLanguages() (map[string][]string, error) {
 
 	for _, entry := range entries {
 		if entry.IsDir() {
-			versions, _ := GetInstalledVersions(entry.Name())
+			versions, err := GetInstalledVersions(entry.Name())
+			if err != nil {
+				continue
+			}
 			if len(versions) > 0 {
 				result[entry.Name()] = versions
 			}
@@ -397,23 +226,16 @@ func GetInstalledLanguages() (map[string][]string, error) {
 	return result, nil
 }
 
-func RemoveVersion(langName, version string) error {
-	dir := config.LanguageInstallDir(langName, version)
+// RemoveVersion removes an installed language version.
+func RemoveVersion(langName, ver string) error {
+	dir := config.LanguageInstallDir(langName, ver)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return fmt.Errorf("version %s for %s is not installed", version, langName)
+		return fmt.Errorf("version %s for %s is not installed", ver, langName)
 	}
 	return os.RemoveAll(dir)
 }
 
-func SaveVernFile(lang, version string) error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(dir, ".vern")
-	return os.WriteFile(path, []byte(fmt.Sprintf("%s %s\n", lang, version)), 0644)
-}
-
+// LoadVernFile finds and parses the nearest .vern file.
 func LoadVernFile() (string, string, error) {
 	path, err := config.FindLocalVernFile()
 	if err != nil {
@@ -422,10 +244,12 @@ func LoadVernFile() (string, string, error) {
 	return config.ParseVernFile(path)
 }
 
+// ResolveVersionForLanguage resolves the active version for a language
+// by checking .vern files and then global defaults.
 func ResolveVersionForLanguage(lang *config.Language) (string, error) {
-	langName, version, err := LoadVernFile()
+	langName, ver, err := LoadVernFile()
 	if err == nil && langName == lang.Name {
-		return version, nil
+		return ver, nil
 	}
 
 	defaults, err := config.LoadDefaults()
@@ -440,160 +264,6 @@ func ResolveVersionForLanguage(lang *config.Language) (string, error) {
 	return v, nil
 }
 
-func GetShimScript(lang *config.Language) string {
-	return fmt.Sprintf(`#!/bin/sh
-exec "%s" "$@"
-`, filepath.Join(config.DataDir(), "versions", lang.Name, "current", lang.BinaryName))
-}
-
-func CreateShims() error {
-	shimsDir := config.ShimsDir()
-	if err := os.MkdirAll(shimsDir, 0755); err != nil {
-		return err
-	}
-
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return err
-	}
-
-	for _, lang := range cfg.Languages {
-		// Find the bin directory from bin_rel_path
-		binDir := filepath.Dir(lang.Install.BinRelPath)
-		if binDir == "." {
-			binDir = ""
-		}
-
-		// Scan an installed version to discover all binaries
-		versions, _ := GetInstalledVersions(lang.Name)
-		if len(versions) == 0 {
-			// No versions installed, create shim for primary binary only
-			createShim(shimsDir, lang.Name, lang.Install.BinRelPath)
-			continue
-		}
-
-		// Use the latest installed version to discover binaries
-		latestVersion := versions[len(versions)-1]
-		installDir := config.LanguageInstallDir(lang.Name, latestVersion)
-
-		var scanDir string
-		if binDir == "" {
-			scanDir = installDir
-		} else {
-			scanDir = filepath.Join(installDir, binDir)
-		}
-
-		entries, err := os.ReadDir(scanDir)
-		if err != nil {
-			// Fallback to primary binary only
-			createShim(shimsDir, lang.Name, lang.Install.BinRelPath)
-			continue
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			info, err := entry.Info()
-			if err != nil || info.Mode()&0111 == 0 {
-				continue // skip non-executable files
-			}
-			var relPath string
-			if binDir == "" {
-				relPath = entry.Name()
-			} else {
-				relPath = filepath.Join(binDir, entry.Name())
-			}
-			createShim(shimsDir, lang.Name, relPath)
-		}
-	}
-	return nil
-}
-
-func createShim(shimsDir, langName, binRelPath string) {
-	// Validate inputs before embedding in shell script
-	if !config.IsValidLangName(langName) || !config.IsValidBinPath(binRelPath) {
-		return
-	}
-	binName := filepath.Base(binRelPath)
-	shimPath := filepath.Join(shimsDir, binName)
-	script := fmt.Sprintf(`#!/bin/sh
-VERN_DATA="%s"
-LANG="%s"
-BIN="%s"
-
-# Check for .vern file
-dir="$PWD"
-while [ "$dir" != "/" ]; do
-    if [ -f "$dir/.vern" ]; then
-        vern_file=$(cat "$dir/.vern")
-        if echo "$vern_file" | grep -q "^$LANG "; then
-            version=$(echo "$vern_file" | cut -d' ' -f2)
-            # Validate version string to prevent path traversal
-            if ! echo "$version" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
-                echo "Invalid version in .vern: $version"
-                exit 1
-            fi
-            exec "$VERN_DATA/installs/$LANG/$version/$BIN" "$@"
-        fi
-    fi
-    dir=$(dirname "$dir")
-done
-
-# Check defaults
-if [ -f "$VERN_DATA/defaults.yaml" ]; then
-    version=$(grep "^$LANG:" "$VERN_DATA/defaults.yaml" | cut -d: -f2 | tr -d ' ')
-    if [ -n "$version" ]; then
-        exec "$VERN_DATA/installs/$LANG/$version/$BIN" "$@"
-    fi
-fi
-
-echo "No version set for $LANG"
-exit 1
-`, config.DataDir(), langName, binRelPath)
-
-	os.WriteFile(shimPath, []byte(script), 0755)
-}
-
-func IsPathSet() bool {
-	path := os.Getenv("PATH")
-	shimsDir := config.ShimsDir()
-	return strings.Contains(path, shimsDir)
-}
-
-func renderTemplateForBuild(templateStr string, data TemplateData) string {
-	result := strings.ReplaceAll(templateStr, "{{.InstallDir}}", data.InstallDir)
-	result = strings.ReplaceAll(result, "{{.Version}}", data.Version)
-	result = strings.ReplaceAll(result, "{{.MajorMinor}}", data.MajorMinor)
-	return result
-}
-
-func runCommand(dir, cmdStr string) error {
-	cmd := exec.Command("sh", "-c", cmdStr)
-	cmd.Dir = dir
-	if Verbose {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	return cmd.Run()
-}
-
-type progressReader struct {
-	reader  io.Reader
-	total   int64
-	current int64
-}
-
-func (pr *progressReader) Read(p []byte) (int, error) {
-	n, err := pr.reader.Read(p)
-	pr.current += int64(n)
-	pct := float64(pr.current) / float64(pr.total) * 100
-	mb := float64(pr.current) / 1024 / 1024
-	totalMB := float64(pr.total) / 1024 / 1024
-	fmt.Fprintf(os.Stdout, "\r  %.1f/%.1f MB (%.0f%%)", mb, totalMB, pct)
-	return n, err
-}
-
 func moveDirContents(src, dst string) error {
 	entries, err := os.ReadDir(src)
 	if err != nil {
@@ -603,7 +273,6 @@ func moveDirContents(src, dst string) error {
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 		if err := os.Rename(srcPath, dstPath); err != nil {
-			// If rename fails (cross-device), try copy
 			if err := copyDirRecursive(srcPath, dstPath); err != nil {
 				return err
 			}
@@ -617,24 +286,18 @@ func copyDirRecursive(src, dst string) error {
 	if err != nil {
 		return err
 	}
-
 	if !srcInfo.IsDir() {
 		return copyFile(src, dst)
 	}
-
 	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
 		return err
 	}
-
 	entries, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}
-
 	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-		if err := copyDirRecursive(srcPath, dstPath); err != nil {
+		if err := copyDirRecursive(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())); err != nil {
 			return err
 		}
 	}
@@ -646,7 +309,6 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -661,10 +323,4 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
-}
-
-func GetShellHook() string {
-	shimsDir := config.ShimsDir()
-	return fmt.Sprintf(`# Add vern shims to PATH
-export PATH="%s:$PATH"`, shimsDir)
 }

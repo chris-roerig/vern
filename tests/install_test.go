@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/chris/vern/internal/install"
+	"github.com/chris-roerig/vern/internal/install"
 )
 
 func TestGetInstalledVersionsSorted(t *testing.T) {

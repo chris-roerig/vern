@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chris/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/config"
 )
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}

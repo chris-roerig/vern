@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/chris/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/config"
 )
 
 func TestParseVernFile(t *testing.T) {

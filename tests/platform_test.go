@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/chris/vern/internal/install"
+	"github.com/chris-roerig/vern/internal/install"
 )
 
 func TestArchAlt(t *testing.T) {

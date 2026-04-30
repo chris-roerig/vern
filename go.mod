@@ -1,4 +1,4 @@
-module github.com/chris/vern
+module github.com/chris-roerig/vern
 
 go 1.26.1
 

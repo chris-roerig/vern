@@ -191,11 +191,21 @@ func homeDir() string {
 	return home
 }
 
+// ConfigDir returns the vern config directory.
+// Respects VERN_HOME env var if set, otherwise uses ~/.config/vern.
 func ConfigDir() string {
+	if home := os.Getenv("VERN_HOME"); home != "" {
+		return filepath.Join(home, "config")
+	}
 	return filepath.Join(homeDir(), ".config", "vern")
 }
 
+// DataDir returns the vern data directory.
+// Respects VERN_HOME env var if set, otherwise uses ~/.local/share/vern.
 func DataDir() string {
+	if home := os.Getenv("VERN_HOME"); home != "" {
+		return filepath.Join(home, "data")
+	}
 	return filepath.Join(homeDir(), ".local", "share", "vern")
 }
 

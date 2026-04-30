@@ -3,12 +3,13 @@ package tests
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/chris/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/install"
 )
 
 // #1: Version validation rejects path traversal
@@ -121,42 +122,33 @@ func TestParseVernFileRejectsTraversal(t *testing.T) {
 	}
 }
 
-// #5: Tar extraction helper - create a tar.gz with a symlink entry
+// #5: Tar extraction rejects symlinks
 func TestTarSymlinkRejection(t *testing.T) {
-	// Create a tar.gz with a symlink entry
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gw)
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
 
-	// Add a symlink entry
 	tw.WriteHeader(&tar.Header{
 		Name:     "evil-link",
 		Typeflag: tar.TypeSymlink,
 		Linkname: "/etc/passwd",
 	})
 	tw.Close()
-	gw.Close()
 
-	// Write to temp file
-	tmpFile := filepath.Join(t.TempDir(), "test.tar.gz")
-	os.WriteFile(tmpFile, buf.Bytes(), 0644)
-
-	// Try to extract - should fail
-	destDir := filepath.Join(t.TempDir(), "dest")
-	os.MkdirAll(destDir, 0755)
-
-	// We can't directly call extractTarGz since it's unexported,
-	// but we can verify the behavior through the exported function
-	// by checking that symlinks are not created
-	// For now, test that the validation functions work
+	destDir := t.TempDir()
+	tr := tar.NewReader(&tarBuf)
+	err := install.ExtractTar(tr, destDir)
+	if err == nil {
+		t.Error("ExtractTar should reject symlink entries")
+	}
+	if !strings.Contains(err.Error(), "symlink") {
+		t.Errorf("error should mention symlink, got: %v", err)
+	}
 }
 
-// #6: Tar extraction - verify setuid bits are stripped
+// #6: Tar extraction strips setuid bits
 func TestTarSetuidStripped(t *testing.T) {
-	// Create a tar.gz with a setuid file
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gw)
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
 
 	content := []byte("#!/bin/sh\necho hello")
 	tw.WriteHeader(&tar.Header{
@@ -167,9 +159,49 @@ func TestTarSetuidStripped(t *testing.T) {
 	})
 	tw.Write(content)
 	tw.Close()
-	gw.Close()
 
-	// The fix masks with 0755, so 04755 & 0755 = 0755
-	// This is tested by verifying the code change exists
-	// A full integration test would need to extract and check permissions
+	destDir := t.TempDir()
+	tr := tar.NewReader(&tarBuf)
+	err := install.ExtractTar(tr, destDir)
+	if err != nil {
+		t.Fatalf("ExtractTar failed: %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(destDir, "setuid-binary"))
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	mode := info.Mode()
+	if mode&os.ModeSetuid != 0 {
+		t.Errorf("setuid bit should be stripped, got mode %o", mode)
+	}
+	if mode.Perm() != 0755 {
+		t.Errorf("expected 0755, got %o", mode.Perm())
+	}
+}
+
+// #7: Tar extraction rejects path traversal
+func TestTarPathTraversal(t *testing.T) {
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
+
+	content := []byte("malicious")
+	tw.WriteHeader(&tar.Header{
+		Name:     "../../../tmp/evil",
+		Size:     int64(len(content)),
+		Mode:     0644,
+		Typeflag: tar.TypeReg,
+	})
+	tw.Write(content)
+	tw.Close()
+
+	destDir := t.TempDir()
+	tr := tar.NewReader(&tarBuf)
+	err := install.ExtractTar(tr, destDir)
+	if err == nil {
+		t.Error("ExtractTar should reject path traversal")
+	}
+	if !strings.Contains(err.Error(), "traversal") {
+		t.Errorf("error should mention traversal, got: %v", err)
+	}
 }

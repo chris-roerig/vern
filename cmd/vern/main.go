@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/chris/vern/cmd/vern/cmd"
+	"github.com/chris-roerig/vern/cmd/vern/cmd"
 )
 
 func main() {

@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/chris/vern/internal/install"
-	"github.com/chris/vern/internal/ui"
+	"github.com/chris-roerig/vern/internal/install"
+	"github.com/chris-roerig/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 

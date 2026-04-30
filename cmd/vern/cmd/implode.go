@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chris/vern/internal/config"
-	"github.com/chris/vern/internal/ui"
+	"github.com/chris-roerig/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/ui"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )

@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/chris/vern/internal/config"
-	"github.com/chris/vern/internal/install"
-	"github.com/chris/vern/internal/ui"
+	"github.com/chris-roerig/vern/internal/config"
+	"github.com/chris-roerig/vern/internal/install"
+	"github.com/chris-roerig/vern/internal/ui"
 	"github.com/spf13/cobra"
 )
 
