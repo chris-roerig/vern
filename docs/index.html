@@ -330,7 +330,7 @@
       <h2>How it works</h2>
       <pre><span class="prompt">$ </span>vern install go
 <span class="output">Installing go 1.26.2...
-Downloading go 1.26.2...
+  217.9/217.9 MB (100%)
 Successfully installed go 1.26.2
 Set go 1.26.2 as default</span>
 
@@ -339,20 +339,49 @@ Set go 1.26.2 as default</span>
 Building python 3.12.8 from source...
 Successfully installed python 3.12.8</span>
 
-<span class="prompt">$ </span>vern init python 3.11
-<span class="output">Created .vern file: python 3.11</span>  <span class="comment"># uses latest 3.11.x</span>
+<span class="prompt">$ </span>vern search zig 0.14
+<span class="output">0.14.0
+0.14.1
+2 version(s)</span>
+
+<span class="prompt">$ </span>vern list
+<span class="output">go (1 version):
+  1.26.2 * (default)
+python (1 version):
+  3.12.8 * (default)</span>
+
+<span class="prompt">$ </span>vern which python
+<span class="output">python 3.12.8 (default)</span>
+
+<span class="prompt">$ </span>vern default python 3.12.8
+<span class="output">Set python 3.12.8 as default</span>
+
+<span class="prompt">$ </span>vern init python 3.12
+<span class="output">Created .vern file: python 3.12</span>  <span class="comment"># uses latest 3.12.x</span>
 
 <span class="prompt">$ </span>vern stats
 <span class="output">go (217.9 MB)
   1.26.2  217.9 MB * (default)
 python (473.6 MB)
-  3.13.13  473.6 MB * (default)
-ruby (580.6 MB)
-  4.0.3  580.6 MB * (default)
-zig (312.5 MB)
-  0.14.0  312.5 MB * (default)
+  3.12.8  473.6 MB * (default)
 
-Total: 1.5 GB</span></pre>
+Total: 691.5 MB</span>
+
+<span class="prompt">$ </span>vern remove python
+<span class="output">▸ 3.12.8 * (default)
+Removed python 3.12.8</span>
+
+<span class="prompt">$ </span>vern update
+<span class="output">Checking for vern updates...
+Vern is already at the latest version: 1.4.0
+Language list is already at the latest version: 1.3.0</span>
+
+<span class="prompt">$ </span>vern setup
+<span class="output">Shims created successfully.</span>
+
+<span class="prompt">$ </span>vern implode
+<span class="output">▸ Everything
+Removed all data, config, and binary. Goodbye!</span></pre>
     </div>
 
     <footer>
