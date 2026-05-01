@@ -122,30 +122,35 @@ func init() {
 	installCmd.Flags().BoolP("verbose", "v", false, "Show build output")
 }
 
-// hasDependency checks if a build requirement is satisfied by system or vern-installed binaries.
+// hasDependency checks if a build requirement is satisfied by vern-installed
+// or system binaries. Skips vern shims to avoid false negatives.
 func hasDependency(req *config.Requirement) bool {
-	// Check system binary
-	out, err := exec.Command(req.Binary, "--version").Output()
-	if err == nil {
-		if ver := extractVersion(string(out)); ver != "" {
-			if meetsMinVersion(ver, req.MinVersion) {
-				return true
-			}
-		}
-	}
-	// Also try ruby-style version output
-	out, err = exec.Command(req.Binary, "-e", "puts RUBY_VERSION").Output()
-	if err == nil {
-		ver := strings.TrimSpace(string(out))
-		if meetsMinVersion(ver, req.MinVersion) {
-			return true
-		}
-	}
-	// Check vern-installed versions
+	// Check vern-installed versions first
 	versions, _ := install.GetInstalledVersions(req.Binary)
 	for _, v := range versions {
 		if meetsMinVersion(v, req.MinVersion) {
 			return true
+		}
+	}
+	// Check system binary, skipping vern shims directory
+	shimsDir := config.ShimsDir()
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		if dir == shimsDir {
+			continue
+		}
+		bin := filepath.Join(dir, req.Binary)
+		if _, err := os.Stat(bin); err != nil {
+			continue
+		}
+		out, err := exec.Command(bin, "-e", "puts RUBY_VERSION").Output()
+		if err != nil {
+			out, err = exec.Command(bin, "--version").Output()
+		}
+		if err == nil {
+			ver := extractVersion(strings.TrimSpace(string(out)))
+			if ver != "" && meetsMinVersion(ver, req.MinVersion) {
+				return true
+			}
 		}
 	}
 	return false
